@@ -10,6 +10,9 @@
     "type": "git",
     "url": "git@github.com:reflector-network/reflector-db-connector.git"
   },
+  "scripts": {
+    "test": "jest"
+  },
   "peerDependencies": {
     "stellar-base": "^10.0.0-soroban.7"
   },

@@ -1,5 +1,5 @@
 const db = require('./db-connector')
-const {parseStateData, encodeContractId} = require('./contract-state-parser')
+const {parseStateData, encodeContractId, parseAccountSigners} = require('./contract-state-parser')
 const {DexTradesAggregator} = require('./dex-trades-aggregator')
 
 /**
@@ -18,7 +18,7 @@ function init(dbConnectionProperties) {
  * @param {Number} decimals - Price precision
  * @param {Number} from - Analyzed period timestamp (Unix timestamp)
  * @param {Number} period - Timeframe length, in second
- * @return {Promise<{admin: {address: String, sequence: BigInt, thresholds: Number[], signers: {address: String, weight: Number}[]}, prices: BigInt[]}>}
+ * @return {Promise<{prices: BigInt[], admin: String, lastTimestamp: BigInt}>}
  */
 async function aggregateTrades({contract, baseAsset, assets, decimals, from, period}) {
     const tradesAggregator = new DexTradesAggregator(baseAsset, assets)
@@ -29,17 +29,24 @@ async function aggregateTrades({contract, baseAsset, assets, decimals, from, per
     await db.fetchProcessTxResults(from, from + period, r => tradesAggregator.processTxResult(r))
     //aggregate prices and merge with previously set prices
     const prices = tradesAggregator.aggregatePrices(parsedContractState.prices, BigInt(decimals))
-    //retrieve current state of admin account
-    const adminProps = await db.fetchAccountProps(parsedContractState.admin)
     return {
         prices,
-        admin: {
-            address: parsedContractState.admin,
-            sequence: adminProps.sequence,
-            signers: adminProps.signers,
-            thresholds: adminProps.thresholds
-        }
+        admin: parsedContractState.admin,
+        lastTimestamp: parsedContractState.lastTimestamp
     }
 }
 
-module.exports = {init, aggregateTrades}
+/**
+ * Fetch account properties from the database
+ * @param {String} account - Account address
+ * @return {Promise<{sequence: BigInt, thresholds: Number[], signers: {address: String, weight: Number}[]}>}
+ */
+async function retrieveAccountProps(account) {
+    const accountProps = await db.fetchAccountProps(account)
+    if (accountProps.signers) {
+        accountProps.signers = parseAccountSigners(accountProps.signers)
+    }
+    return accountProps
+}
+
+module.exports = {init, aggregateTrades, retrieveAccountProps}

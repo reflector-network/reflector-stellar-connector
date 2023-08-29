@@ -8,10 +8,6 @@ const p2 = 'AAfIhwAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAJAAAB
 const lt = 'AAfIgQAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAOAAAADmxhc3RfdGltZXN0YW1wAAAAAAABAAAAAAAAAAAAAAAFAAABihnXh7AACRoBAAAAAA=='
 
 describe('parseStateData()', () => {
-    test('Protocol version mismatch', () => {
-        expect(() => parseStateData({version}, 0))
-            .toThrowError('Unsupported protocol version')
-    })
     test('Missing price data', () => {
         expect(() => parseStateData({version, prices: [p0, p2]}))
             .toThrowError('Missing price data for 1 assets')
@@ -21,6 +17,7 @@ describe('parseStateData()', () => {
             .toStrictEqual({
                 admin: 'GCBKI33B7ZRRWPWOI4NPZXXQSGTYG6DYKOWJOVKQGIVL2XWUFW7HQBCB',
                 lastTimestamp: 1692650670000n,
+                protocolVersion: 1,
                 prices: [558363985981014057913746n, 165685348202245997813466n, 33900364339832385538702n]
             })
     })

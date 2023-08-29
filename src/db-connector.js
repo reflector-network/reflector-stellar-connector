@@ -1,7 +1,6 @@
 const {Pool} = require('pg')
 const Cursor = require('pg-cursor')
 const contractStateKeys = require('./contract-state-keys')
-const {parseAccountSigners} = require('./contract-state-parser')
 
 const MAX_STATE_ENTRIES_SEARCH = 200
 
@@ -102,7 +101,7 @@ class DbConnector {
         return {
             sequence: BigInt(acc.seqnum),
             thresholds: [...Buffer.from(acc.thresholds, 'base64')],
-            signers: parseAccountSigners(acc.signers)
+            signers: acc.signers
         }
     }
 }

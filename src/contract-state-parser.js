@@ -1,17 +1,11 @@
 const {StrKey, xdr, scValToBigInt} = require('stellar-base')
-const {protocolVersion} = require('./protocol-version')
 
 /**
  * Retrieve and parse contract state data
  * @param {ContractStateRawData} contractData - Contract data state retrieved from StellarCore db
- * @param {Number} [expectedProtocolVersion] - Provider protocol version
  * @return {{admin: String, lastTimestamp: BigInt, prices: BigInt[]}}
  */
-function parseStateData(contractData, expectedProtocolVersion = protocolVersion) {
-    const contractProtocolVersion = parseStateLedgerEntry(contractData.version).body().data().val().u32()
-    if (contractProtocolVersion > expectedProtocolVersion)
-        throw new Error(`Unsupported protocol version. Data provider protocol version: ${expectedProtocolVersion}, contract protocol version: ${contractProtocolVersion}.`)
-
+function parseStateData(contractData) {
     const prices = []
     let total = 0
     for (const p of contractData.prices) {
@@ -25,6 +19,7 @@ function parseStateData(contractData, expectedProtocolVersion = protocolVersion)
     return {
         admin: StrKey.encodeEd25519PublicKey(parseStateLedgerEntry(contractData.admin).body().data().val().address().accountId().ed25519()),
         lastTimestamp: typeof contractData.lastTimestamp === 'string' ? scValToBigInt(parseStateLedgerEntry(contractData.lastTimestamp).body().data().val()) : contractData.lastTimestamp,
+        protocolVersion: parseStateLedgerEntry(contractData.version).body().data().val().u32(),
         prices
     }
 }

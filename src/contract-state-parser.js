@@ -3,7 +3,7 @@ const {StrKey, xdr, scValToBigInt} = require('stellar-base')
 /**
  * Retrieve and parse contract state data
  * @param {ContractStateRawData} contractData - Contract data state retrieved from StellarCore db
- * @return {{admin: String, lastTimestamp: BigInt, prices: BigInt[]}}
+ * @return {{admin: String, lastTimestamp: BigInt, protocolVersion: Number, prices: BigInt[]}}
  */
 function parseStateData(contractData) {
     const prices = []
@@ -16,6 +16,14 @@ function parseStateData(contractData) {
     }
     if (prices.length !== total)
         throw new Error(`Missing price data for ${prices.length - total} assets.`)
+    if (!contractData.admin)
+        return {
+            admin: null,
+            lastTimestamp: 0n,
+            protocolVersion: 0,
+            prices: [],
+            uninitialized: true
+        }
     return {
         admin: StrKey.encodeEd25519PublicKey(parseStateLedgerEntry(contractData.admin).body().data().val().address().accountId().ed25519()),
         lastTimestamp: typeof contractData.lastTimestamp === 'string' ? scValToBigInt(parseStateLedgerEntry(contractData.lastTimestamp).body().data().val()) : contractData.lastTimestamp,

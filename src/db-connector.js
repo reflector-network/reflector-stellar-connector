@@ -51,8 +51,6 @@ class DbConnector {
     async fetchContractState(contractId) {
         const priceQuery = 'select key, ledgerentry, lastmodified from contractdata where contractid=$1 order by lastmodified desc limit ' + MAX_STATE_ENTRIES_SEARCH
         const entriesRes = await this.pool.query(priceQuery, [contractId])
-        if (!entriesRes.rows.length)
-            return null //no price records, should we throw an error?
         const prices = []
         let lastModified = 0
         for (const record of entriesRes.rows) {

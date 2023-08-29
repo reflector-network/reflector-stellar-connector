@@ -1,6 +1,7 @@
 const {Pool} = require('pg')
 const Cursor = require('pg-cursor')
 const contractStateKeys = require('./contract-state-keys')
+const {parseAccountSigners} = require('./contract-state-parser')
 
 const MAX_STATE_ENTRIES_SEARCH = 200
 
@@ -71,7 +72,8 @@ class DbConnector {
         return {
             prices,
             version: await this.fetchContractStateEntry(contractId, contractStateKeys.configVersion, contractStateKeys.configVersion),
-            lastTimestamp: await this.fetchContractStateEntry(contractId, contractStateKeys.lastTimestamp, 0)
+            lastTimestamp: await this.fetchContractStateEntry(contractId, contractStateKeys.lastTimestamp, 0),
+            admin: await this.fetchContractStateEntry(contractId, contractStateKeys.admin, null)
         }
     }
 
@@ -88,6 +90,21 @@ class DbConnector {
         const entry = res.rows[0]
         return entry ? entry.ledgerentry : defaultValue
     }
+
+    /**
+     * @param {String} accountAddress
+     * @return {Promise<{sequence: BigInt, thresholds: Number[], signers: {address: String, weight: Number}[]}>}
+     */
+    async fetchAccountProps(accountAddress) {
+        const query = 'select seqnum, signers, thresholds from accounts where accountid=$1'
+        const res = await this.pool.query(query, [accountAddress])
+        const acc = res.rows[0]
+        return {
+            sequence: BigInt(acc.seqnum),
+            thresholds: [...Buffer.from(acc.thresholds, 'base64')],
+            signers: parseAccountSigners(acc.signers)
+        }
+    }
 }
 
 /**
@@ -95,6 +112,7 @@ class DbConnector {
  * @property {String} version
  * @property {String[]} prices
  * @property {String} lastTimestamp
+ * @property {String} admin
  */
 
 module.exports = new DbConnector()

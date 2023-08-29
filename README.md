@@ -10,7 +10,7 @@ Add package reference to the `dependencies` section of `package.json`
 {
   ...
   "dependencies": {
-    "@reflector/reflector-db-connector": "github:reflector-network/reflector-db-connector#v0.4.2",
+    "@reflector/reflector-db-connector": "github:reflector-network/reflector-db-connector#v0.5.0",
     ...
   }
 }
@@ -40,9 +40,30 @@ aggregateTrades({
     ],
     decimals: 14,
     from: 1693138200,
-    period: 300,
-    protocolVersion: 1
+    period: 300
 })
     .then(res => console.log(res))
     .catch(e => console.error(e))
+
+/*{
+  prices: [200034486332703n, 300041829628294n, 0n],
+  admin: {
+    address: 'GBE...',
+    sequence: 1589182379660938n,
+    signers: [
+      {"address": "GAO...", "weight": 1},
+      {"address": "GBF...", "weight": 1},
+      {"address": "GCC...", "weight": 1},
+      {"address": "GC6...", "weight": 1},
+      {"address": "GDT...", "weight": 1}
+    ],      
+    thresholds: [0, 3, 3, 3]
+  }
+}*/
+```
+
+## Tests
+
+```
+npm run test
 ```

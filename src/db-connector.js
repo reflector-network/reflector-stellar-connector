@@ -68,7 +68,7 @@ class DbConnector {
         //assemble response
         return {
             prices,
-            version: await this.fetchContractStateEntry(contractId, contractStateKeys.configVersion, contractStateKeys.configVersion),
+            version: await this.fetchContractStateEntry(contractId, contractStateKeys.configVersion, 0),
             lastTimestamp: await this.fetchContractStateEntry(contractId, contractStateKeys.lastTimestamp, 0),
             admin: await this.fetchContractStateEntry(contractId, contractStateKeys.admin, null)
         }
@@ -84,8 +84,10 @@ class DbConnector {
     async fetchContractStateEntry(contractId, key, defaultValue) {
         const query = 'select ledgerentry from contractdata where contractid=$1 and key=$2 limit 1'
         const res = await this.pool.query(query, [contractId, key])
+        if (!res.rows?.length)
+            return defaultValue
         const entry = res.rows[0]
-        return entry ? entry.ledgerentry : defaultValue
+        return entry.ledgerentry
     }
 
     /**

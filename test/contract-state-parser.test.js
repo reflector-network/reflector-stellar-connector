@@ -1,6 +1,5 @@
 const {parseStateData, encodeContractId} = require('../src/contract-state-parser')
 
-const version = 'AAfIfQAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAOAAAADmNvbmZpZ192ZXJzaW9uAAAAAAABAAAAAAAAAAAAAAADAAAAAQAJGf0AAAAA'
 const admin = 'AAfIfQAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAOAAAABWFkbWluAAAAAAAAAQAAAAAAAAAAAAAAEgAAAAAAAAAAgqRvYf5jGz7ORxr83vCRp4N4eFOsl1VQMiq9XtQtvngACRn9AAAAAA=='
 const p0 = 'AAfIhwAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAJAAABihnXh7AAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAoAAAAAAAB2PPjqvou9v42SAAkaBwAAAAA='
 const p1 = 'AAfIhwAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAJAAABihnXh7AAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAoAAAAAAAAjFdIa71hyZV7aAAkaBwAAAAA='
@@ -9,15 +8,14 @@ const lt = 'AAfIgQAAAAYAAAABMC5MUHDFpc+6HXEQ48PbOL98BN2kuB5EZlyvKpAYEqQAAAAOAAAA
 
 describe('parseStateData()', () => {
     test('Missing price data', () => {
-        expect(() => parseStateData({version, prices: [p0, p2]}))
+        expect(() => parseStateData({prices: [p0, p2]}))
             .toThrowError('Missing price data for 1 assets')
     })
     test('Parsed price data', () => {
-        expect(parseStateData({version, prices: [p0, p1, p2], lastTimestamp: lt, admin}))
+        expect(parseStateData({prices: [p0, p1, p2], lastTimestamp: lt, admin}))
             .toStrictEqual({
                 admin: 'GCBKI33B7ZRRWPWOI4NPZXXQSGTYG6DYKOWJOVKQGIVL2XWUFW7HQBCB',
                 lastTimestamp: 1692650670000n,
-                protocolVersion: 1,
                 prices: [558363985981014057913746n, 165685348202245997813466n, 33900364339832385538702n]
             })
     })

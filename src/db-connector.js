@@ -68,7 +68,6 @@ class DbConnector {
         //assemble response
         return {
             prices,
-            version: await this.fetchContractStateEntry(contractId, contractStateKeys.configVersion, 0),
             lastTimestamp: await this.fetchContractStateEntry(contractId, contractStateKeys.lastTimestamp, 0),
             admin: await this.fetchContractStateEntry(contractId, contractStateKeys.admin, null)
         }
@@ -108,7 +107,6 @@ class DbConnector {
 
 /**
  * @typedef {{}} ContractStateRawData
- * @property {String} version
  * @property {String[]} prices
  * @property {String} lastTimestamp
  * @property {String} admin

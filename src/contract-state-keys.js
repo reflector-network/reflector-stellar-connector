@@ -1,5 +1,7 @@
 module.exports = {
-    admin: 'AAAADgAAAAVhZG1pbgAAAA==',
-    lastTimestamp: 'AAAADgAAAA5sYXN0X3RpbWVzdGFtcAAA',
+    admin: 'admin',
+    lastTimestamp: 'last_timestamp',
+    adminPrefix: 'AAAADgAAAAVhZG1pbgAAAA',
+    lastTimestampPrefix: 'AAAADgAAAA5sYXN0X3RpbWVzdGFtcAAA',
     valuePrefix: 'AAAACQAA'
 }

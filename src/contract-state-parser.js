@@ -1,4 +1,5 @@
 const {StrKey, xdr, scValToBigInt} = require('stellar-base')
+const {adminPrefix, lastTimestampPrefix, admin: adminKey, lastTimestamp: lastTimestampKey} = require('./contract-state-keys')
 
 /**
  * Retrieve and parse contract state data
@@ -16,16 +17,23 @@ function parseStateData(contractData) {
     }
     if (prices.length !== total)
         throw new Error(`Missing price data for ${prices.length - total} assets.`)
-    if (!contractData.admin)
-        return {
-            admin: null,
-            lastTimestamp: 0n,
-            prices: [],
-            uninitialized: true
-        }
+    const defaultValues = {
+        admin: null,
+        lastTimestamp: 0n,
+        prices: [],
+        uninitialized: true
+    }
+
+    if (!contractData.contractEntry)
+        return defaultValues
+
+    const { admin, lastTimestamp } = tryGetParsedStateData(contractData.contractEntry)
+    if (!admin)
+        return defaultValues
+
     return {
-        admin: StrKey.encodeEd25519PublicKey(parseStateLedgerEntry(contractData.admin).body().data().val().address().accountId().ed25519()),
-        lastTimestamp: typeof contractData.lastTimestamp === 'string' ? scValToBigInt(parseStateLedgerEntry(contractData.lastTimestamp).body().data().val()) : contractData.lastTimestamp,
+        admin: admin,
+        lastTimestamp: lastTimestamp || 0n,
         prices
     }
 }
@@ -36,6 +44,28 @@ function parseStateData(contractData) {
  */
 function encodeContractId(contractId) {
     return xdr.ScAddress.scAddressTypeContract(StrKey.decodeContract(contractId)).toXDR('base64')
+}
+
+function tryGetParsedStateData(contractEntry) {
+    let data = {}
+    const containsAdmin = contractEntry.indexOf(adminPrefix) !== -1
+    if (!containsAdmin)
+        return data
+    const containsLastTimestamp = contractEntry.indexOf(lastTimestampPrefix) !== -1
+    const storage = parseStateLedgerEntry(contractEntry).body()?.value()?.val()?.value()?.storage()
+    if (!storage)
+        return data
+    for (const entry of storage) {
+        let key = entry.key().value().toString()
+        if (key === adminKey)
+            data.admin = StrKey.encodeEd25519PublicKey(entry.val().address().accountId().ed25519())
+        else if (key === lastTimestampKey) {
+            data.lastTimestamp = scValToBigInt(entry.val())
+        }
+        if (data.admin && (data.lastTimestamp || !containsLastTimestamp))
+            break
+    }
+    return data
 }
 
 /**

@@ -1,4 +1,4 @@
-const {Pool} = require('pg')
+const { Pool } = require('pg')
 const Cursor = require('pg-cursor')
 const contractStateKeys = require('./contract-state-keys')
 
@@ -65,26 +65,26 @@ class DbConnector {
             }
             prices.push(record.ledgerentry)
         }
+        let contractEntry = null
+        if (entriesRes.rows.length !== 0) //if there are no entries, it means that the contract is uninitialized. No need to fetch state entries
+            contractEntry = await this.fetchContractStateEntries(contractId)
         //assemble response
         return {
             prices,
-            lastTimestamp: await this.fetchContractStateEntry(contractId, contractStateKeys.lastTimestamp, 0),
-            admin: await this.fetchContractStateEntry(contractId, contractStateKeys.admin, null)
+            contractEntry
         }
     }
 
     /**
      * @param {String} contractId - ScAddress-encrypted contract id
-     * @param {String} key - Key to fetch
-     * @param {*} defaultValue - Default value if the entry was not found
      * @return {Promise<String>}
      * @private
      */
-    async fetchContractStateEntry(contractId, key, defaultValue) {
-        const query = 'select ledgerentry from contractdata where contractid=$1 and key=$2 limit 1'
-        const res = await this.pool.query(query, [contractId, key])
+    async fetchContractStateEntries(contractId) {
+        const query = 'select ledgerentry from contractdata where contractid=$1 and type=1 limit 1'
+        const res = await this.pool.query(query, [contractId])
         if (!res.rows?.length)
-            return defaultValue
+            return null
         const entry = res.rows[0]
         return entry.ledgerentry
     }
@@ -108,8 +108,7 @@ class DbConnector {
 /**
  * @typedef {{}} ContractStateRawData
  * @property {String[]} prices
- * @property {String} lastTimestamp
- * @property {String} admin
+ * @property {String} contractEntry
  */
 
 module.exports = new DbConnector()

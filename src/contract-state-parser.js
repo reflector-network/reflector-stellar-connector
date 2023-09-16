@@ -1,5 +1,5 @@
-const {StrKey, xdr, scValToBigInt} = require('stellar-base')
-const {adminPrefix, lastTimestampPrefix, admin: adminKey, lastTimestamp: lastTimestampKey} = require('./contract-state-keys')
+const { StrKey, xdr, scValToBigInt } = require('stellar-base')
+const { admin: adminKey, lastTimestamp: lastTimestampKey } = require('./contract-state-keys')
 
 /**
  * Retrieve and parse contract state data
@@ -12,7 +12,7 @@ function parseStateData(contractData) {
     for (const p of contractData.prices) {
         const contractData = parseStateLedgerEntry(p)
         const index = contractData.key().u128().lo().low
-        prices[index] = scValToBigInt(contractData.body().data().val())
+        prices[index] = scValToBigInt(contractData.val())
         total++
     }
     if (prices.length !== total)
@@ -32,7 +32,7 @@ function parseStateData(contractData) {
         return defaultValues
 
     return {
-        admin: admin,
+        admin,
         lastTimestamp: lastTimestamp || 0n,
         prices
     }
@@ -48,11 +48,7 @@ function encodeContractId(contractId) {
 
 function tryGetParsedStateData(contractEntry) {
     let data = {}
-    const containsAdmin = contractEntry.indexOf(adminPrefix) !== -1
-    if (!containsAdmin)
-        return data
-    const containsLastTimestamp = contractEntry.indexOf(lastTimestampPrefix) !== -1
-    const storage = parseStateLedgerEntry(contractEntry).body()?.value()?.val()?.value()?.storage()
+    const storage = parseStateLedgerEntry(contractEntry)?.val()?.value()?.storage()
     if (!storage)
         return data
     for (const entry of storage) {
@@ -62,7 +58,7 @@ function tryGetParsedStateData(contractEntry) {
         else if (key === lastTimestampKey) {
             data.lastTimestamp = scValToBigInt(entry.val())
         }
-        if (data.admin && (data.lastTimestamp || !containsLastTimestamp))
+        if (data.admin && data.lastTimestamp)
             break
     }
     return data
@@ -100,4 +96,4 @@ function parseAccountSigners(rawSigners) {
     return signers
 }
 
-module.exports = {parseStateData, encodeContractId, parseAccountSigners}
+module.exports = { parseStateData, encodeContractId, parseAccountSigners }

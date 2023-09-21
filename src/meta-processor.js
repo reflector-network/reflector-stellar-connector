@@ -11,7 +11,12 @@ function xdrParseResult(resultXdr) {
     const txResultState = innerResult.switch()
     if (txResultState.value < 0)
         return null //tx failed
-    return (innerResult.results() || []).map(parseRawOpResult).flat().filter(v => !!v)
+    try {
+        return (innerResult.results() || []).map(parseRawOpResult).flat().filter(v => !!v)
+    } catch (e) {
+        console.error(e)
+        return null
+    }
 }
 
 function parseRawOpResult(rawOpResult) {

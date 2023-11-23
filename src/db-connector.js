@@ -1,4 +1,4 @@
-const { Pool } = require('pg')
+const {Pool} = require('pg')
 const Cursor = require('pg-cursor')
 const contractStateKeys = require('./contract-state-keys')
 

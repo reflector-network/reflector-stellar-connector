@@ -66,7 +66,7 @@ class DexTradesAggregator {
      * @param {BigInt} quoteVolume
      * @private
      */
-    processTrade(asset, baseVolume, quoteVolume) {
+    processTrade(asset, quoteVolume, baseVolume) {
         const accumulator = this.assets.get(asset.toString())
         if (!accumulator)
             return

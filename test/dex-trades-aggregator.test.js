@@ -12,7 +12,7 @@ describe('DexTradesAggregator', () => {
         new Asset('Y', issuer),
         new Asset('W', issuer)]
     const prevPrices = [1000000000000000n, 2000000000000000n, 3000000000000000n] //W token has no prev price records
-    const resPrices = [200602755686385n, 299101070927264n, 3000000000000000n, 0n]
+    const resPrices = [49849763856851n, 33433514527374n, 3000000000000000n, 0n]
 
     test('Aggregate ', () => {
         const aggregator = new DexTradesAggregator(baseAsset, trackedAssets)

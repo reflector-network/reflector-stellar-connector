@@ -23,7 +23,7 @@ Initialize PostgreSQL connection (only once)
 init({
     user: 'stellar',
     database: 'futurenet',
-    password: 'rtXX76s@DWjff#',
+    password: 'db_password',
     host: '127.0.0.1',
     port: 54321
 })
@@ -39,7 +39,7 @@ aggregateTrades({
         new Asset('CHF', 'GAA0')
     ],
     decimals: 14,
-    from: 1693138200,
+    from: 1693138200,D
     period: 300
 })
     .then(res => console.log(res))

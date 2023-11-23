@@ -1,5 +1,5 @@
-const { StrKey, xdr, scValToBigInt } = require('stellar-base')
-const { admin: adminKey, lastTimestamp: lastTimestampKey } = require('./contract-state-keys')
+const {StrKey, xdr, scValToBigInt} = require('stellar-base')
+const {admin: adminKey, lastTimestamp: lastTimestampKey} = require('./contract-state-keys')
 
 /**
  * Retrieve and parse contract state data
@@ -27,7 +27,7 @@ function parseStateData(contractData) {
     if (!contractData.contractEntry)
         return defaultValues
 
-    const { admin, lastTimestamp } = tryGetParsedStateData(contractData.contractEntry)
+    const {admin, lastTimestamp} = tryGetParsedStateData(contractData.contractEntry)
     if (!admin)
         return defaultValues
 
@@ -96,4 +96,4 @@ function parseAccountSigners(rawSigners) {
     return signers
 }
 
-module.exports = { parseStateData, encodeContractId, parseAccountSigners }
+module.exports = {parseStateData, encodeContractId, parseAccountSigners}

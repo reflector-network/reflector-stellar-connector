@@ -6,8 +6,6 @@ const intitializedContractEntry = 'AAA3XgAAAAYAAAAAAAAAAdvnd/gMZMLtrqewi876IT+RR
 
 const notInitializedContractEntry = 'AAA4YQAAAAYAAAAAAAAAAUmq/tR8mJftgV2KwxLBkoBE79yOHOxALnynwKsYfxu/AAAAFAAAAAEAAAATAAAAAKiBo7d/cSlWYS0N6p7xJqnO2HhkQK+0dS/lXoyP9q5yAAAAAAAAAAA='
 
-console.log(encodeContractId('CBE2V7WUPSMJP3MBLWFMGEWBSKAEJ364RYOOYQBOPST4BKYYP4N37PEH'))
-
 describe('parseStateData()', () => {
     test('Missing price data', () => {
         expect(() => parseStateData({prices: [p1]}))

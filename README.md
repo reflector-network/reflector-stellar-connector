@@ -8,52 +8,61 @@ Add package reference to the `dependencies` section of `package.json`
 
 ```json
 {
-  ...
   "dependencies": {
-    "@reflector/reflector-db-connector": "github:reflector-network/reflector-db-connector#v0.5.0",
-    ...
+    "@reflector/reflector-db-connector": "github:reflector-network/reflector-db-connector#v0.5.0"
   }
 }
 ```
 
 ## Usage
 
-Initialize PostgreSQL connection (only once)
+Initialize CoreDB connection to work with.  
+Note: creating multipleDbConnector instances is bad idea, use singleton db connector instances locally to pass them to
+other functions.
+
 ```js
-init({
-    user: 'stellar',
-    database: 'futurenet',
-    password: 'db_password',
-    host: '127.0.0.1',
-    port: 54321
-})
+const db = createDbConnection('postgres://stellar:db_password@127.0.0.1:54321/futurenet')
 ```
 
-Aggregate trades for a given period
+Retrieve current contract state data:
+
+```js
+retrieveContractState(db, 'CAQF...')
+    .then(res => console.log(res))
+/*{
+  prices: [200124486333288n, 300121829628006n, 0n],
+  admin: 'GCE...',
+  lastTimestamp: 0n
+ */
+```
+
+Aggregate trades for a given period:
+
 ```js
 aggregateTrades({
-    contract: 'CAQF...',
+    db,
     baseAsset: new Asset('USD', 'GBCC..'),
     assets: [
         new Asset('EUR', 'GC9L...'),
         new Asset('CHF', 'GAA0')
     ],
     decimals: 14,
-    from: 1693138200,D
-    period: 300
+    from: 1693138200,
+    period: 300,
+    prevPrices: [200124486333288n, 300121829628006n, 0n]
 })
     .then(res => console.log(res))
-    .catch(e => console.error(e))
 
-/*{
-  prices: [200034486332703n, 300041829628294n, 0n],
-  admin: 'GCE...',
-  lastTimestamp: 0n
-}*/
+/*
+[200034486332703n, 300041829628294n, 0n]
+*/
+```
 
-retrieveAccountProps('GCB...')
+Fetch account signers and thresholds:
+
+```js
+retrieveAccountProps(db, 'GCB...')
     .then(res => console.log(res))
-    .catch(e => console.error(e))
 
 /*{
   sequence: 1589182379660938n,

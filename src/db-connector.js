@@ -6,18 +6,17 @@ const MAX_STATE_ENTRIES_SEARCH = 200
 
 class DbConnector {
     /**
+     * Create Core DB connector instance
+     * @param {String|{}} connectionParams
+     */
+    constructor(connectionParams) {
+        this.pool = new Pool(connectionParams)
+    }
+    /**
      * @type {Pool}
      * @private
      */
     pool
-
-    /**
-     * Initialize connection
-     * @param {String} dbConnectionSettings
-     */
-    init(dbConnectionSettings) {
-        this.pool = new Pool(dbConnectionSettings)
-    }
 
     /**
      * @param {Number} from - Range lower bound timestamp (inclusive)
@@ -111,4 +110,4 @@ class DbConnector {
  * @property {String} contractEntry
  */
 
-module.exports = new DbConnector()
+module.exports = DbConnector

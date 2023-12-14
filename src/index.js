@@ -1,6 +1,7 @@
 const DbConnector = require('./db-connector')
 const {DexTradesAggregator} = require('./dex-trades-aggregator')
 const {parseStateData, encodeContractId, parseAccountSigners} = require('./contract-state-parser')
+const {Asset} = require('stellar-base')
 
 /**
  * Initialize StellarCore database connection
@@ -13,8 +14,8 @@ function createDbConnection(dbConnectionProperties) {
 /**
  * Aggregate trades and prices
  * @param {DbConnector} db - Database connector
- * @param {Asset} baseAsset - Base asset
- * @param {Asset[]} assets - Tracked assets
+ * @param {{type: number, code: string}} baseAsset - Base asset
+ * @param {{type: number, code: string}[]} assets - Tracked assets
  * @param {Number} decimals - Price precision
  * @param {Number} from - Analyzed period timestamp (Unix timestamp)
  * @param {Number} period - Timeframe length, in second
@@ -22,7 +23,7 @@ function createDbConnection(dbConnectionProperties) {
  * @return {Promise<BigInt[]>}
  */
 async function aggregateTrades({db, baseAsset, assets, decimals, from, period, prevPrices}) {
-    const tradesAggregator = new DexTradesAggregator(baseAsset, assets)
+    const tradesAggregator = new DexTradesAggregator(convertToStellarAsset(baseAsset), assets.map(a => convertToStellarAsset(a)))
     //fetch and process tx results
     await db.fetchProcessTxResults(from, from + period, r => tradesAggregator.processTxResult(r))
     //aggregate prices and merge with previously set prices
@@ -54,5 +55,23 @@ async function retrieveAccountProps(db, account) {
     }
     return accountProps
 }
+
+function convertToStellarAsset(asset) {
+    switch (asset.type) {
+        case 1: // Stellar asset
+            if (!asset.code)
+                throw new Error(`Asset code is required`)
+            const [code, issuer] = asset.code.split(':')
+            if (code === 'XLM' && !issuer)
+                return Asset.native()
+            else if (code && issuer)
+                return new Asset(code, issuer)
+            else
+                throw new Error(`Unsupported asset: ${asset.code}`)
+        default:
+            throw new Error(`Unsupported asset type: ${asset.type}`)
+    }
+}
+
 
 module.exports = {createDbConnection, aggregateTrades, retrieveContractState, retrieveAccountProps}

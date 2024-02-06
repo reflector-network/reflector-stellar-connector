@@ -7,9 +7,13 @@ const intitializedContractEntry = 'AAA3XgAAAAYAAAAAAAAAAdvnd/gMZMLtrqewi876IT+RR
 const notInitializedContractEntry = 'AAA4YQAAAAYAAAAAAAAAAUmq/tR8mJftgV2KwxLBkoBE79yOHOxALnynwKsYfxu/AAAAFAAAAAEAAAATAAAAAKiBo7d/cSlWYS0N6p7xJqnO2HhkQK+0dS/lXoyP9q5yAAAAAAAAAAA='
 
 describe('parseStateData()', () => {
-    test('Missing price data', () => {
-        expect(() => parseStateData({prices: [p1]}))
-            .toThrowError('Missing price data for 1 assets')
+    test('Missing price data entry', () => {
+        expect(parseStateData({prices: [p1], contractEntry: intitializedContractEntry}))
+            .toStrictEqual({
+                admin: 'GD62C5ETSUTD4ZKHX2UEFWUF4QFP2MOYWO7JO3RIJPHLRYR5P7WJB2E2',
+                lastTimestamp: 1694877000000n,
+                prices: [0n, 2n]
+            })
     })
     test('Parsed price data', () => {
         expect(parseStateData({prices: [p0, p1], contractEntry: intitializedContractEntry}))

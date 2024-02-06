@@ -15,8 +15,12 @@ function parseStateData(contractData) {
         prices[index] = scValToBigInt(contractData.val())
         total++
     }
-    if (prices.length !== total)
-        throw new Error(`Missing price data for ${prices.length - total} assets.`)
+    if (prices.length !== total) {
+        for (let i = 0; i < prices.length; i++)
+            if (prices[i] === undefined) {
+                prices[i] = 0n
+            }
+    }
     const defaultValues = {
         admin: null,
         lastTimestamp: 0n,

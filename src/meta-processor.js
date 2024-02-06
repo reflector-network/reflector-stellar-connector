@@ -1,4 +1,4 @@
-const {xdr} = require('stellar-base')
+const {xdr} = require('@stellar/stellar-base')
 
 /**
  * Parse raw XDR result

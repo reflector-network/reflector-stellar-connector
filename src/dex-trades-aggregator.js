@@ -1,4 +1,4 @@
-const {Asset} = require('stellar-base')
+const {Asset} = require('@stellar/stellar-base')
 const {xdrParseResult} = require('./meta-processor')
 
 class DexTradesAggregator {

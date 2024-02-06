@@ -1,4 +1,4 @@
-const {Asset} = require('stellar-base')
+const {Asset} = require('@stellar/stellar-base')
 const {DexTradesAggregator} = require('../src/dex-trades-aggregator')
 
 describe('DexTradesAggregator', () => {

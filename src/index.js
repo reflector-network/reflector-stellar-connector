@@ -1,7 +1,7 @@
+const {Asset} = require('@stellar/stellar-base')
 const DbConnector = require('./db-connector')
 const {DexTradesAggregator} = require('./dex-trades-aggregator')
 const {parseStateData, encodeContractId, parseAccountSigners} = require('./contract-state-parser')
-const {Asset} = require('stellar-base')
 
 /**
  * Initialize StellarCore database connection

@@ -1,6 +1,6 @@
 {
   "name": "@reflector/reflector-db-connector",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "StellarCore database connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",
@@ -14,7 +14,7 @@
     "test": "jest"
   },
   "peerDependencies": {
-    "stellar-base": "10.0.0-beta.3"
+    "@stellar/stellar-base": "10.0.2"
   },
   "dependencies": {
     "pg": "8.11.3",

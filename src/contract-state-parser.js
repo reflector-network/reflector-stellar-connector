@@ -1,4 +1,4 @@
-const {StrKey, xdr, scValToBigInt} = require('stellar-base')
+const {StrKey, xdr, scValToBigInt} = require('@stellar/stellar-base')
 const {admin: adminKey, lastTimestamp: lastTimestampKey} = require('./contract-state-keys')
 
 /**

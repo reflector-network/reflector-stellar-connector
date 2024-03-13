@@ -1,6 +1,6 @@
 {
   "name": "@reflector/reflector-db-connector",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "StellarCore database connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",

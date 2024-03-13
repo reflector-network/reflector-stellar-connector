@@ -14,7 +14,7 @@ function xdrParseResult(resultXdr) {
     try {
         return (innerResult.results() || []).map(parseRawOpResult).flat().filter(v => !!v)
     } catch (e) {
-        console.error(e)
+        console.error(new AggregateError([e], 'Error processing tx ' + parsed.transactionHash().toString('hex')))
         return null
     }
 }

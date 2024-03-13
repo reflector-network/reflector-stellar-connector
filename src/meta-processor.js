@@ -12,7 +12,15 @@ function xdrParseResult(resultXdr) {
     if (txResultState.value < 0)
         return null //tx failed
     try {
-        return (innerResult.results() || []).map(parseRawOpResult).flat().filter(v => !!v)
+        if (innerResult._switch.value < 0) //failed tx
+            return null
+        let opResults
+        if (innerResult._arm === 'innerResultPair') { //fee bump tx
+            opResults = innerResult.innerResultPair().result().result().results()
+        } else { //regular tx
+            opResults = innerResult.results()
+        }
+        return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
     } catch (e) {
         console.error(new AggregateError([e], 'Error processing tx ' + parsed.transactionHash().toString('hex')))
         return null

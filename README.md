@@ -16,13 +16,14 @@ Add package reference to the `dependencies` section of `package.json`
 
 ## Usage
 
-Initialize CoreDB connection to work with.  
-Note: creating multipleDbConnector instances is bad idea, use singleton db connector instances locally to pass them to
-other functions.
+Initialize CoreDB connection to work with.
 
 ```js
 const db = createDbConnection('postgres://stellar:db_password@127.0.0.1:54321/futurenet')
-```
+```  
+
+> Note: creating multiple DbConnector instances is bad idea, use singleton db connector instances locally to pass them
+to other functions.
 
 Aggregate trades for a given period:
 
@@ -59,7 +60,7 @@ aggregateTrades({
             quoteVolume: 2016928760n,
             volume: 6032655521n
         }
-    ],
+    ]
 ]*/
 ```
 

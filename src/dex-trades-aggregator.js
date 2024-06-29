@@ -30,14 +30,13 @@ class DexTradesAggregator {
 
     /**
      * Aggregate prices from all recorded trades and merge with previous prices
-     * @param {BigInt[]} prevPrices
-     * @param {BigInt} decimals
-     * @return {BigInt[]}
+     * @param {number} expectedAssetsCount - Expected assets count (length of the output array)
+     * @return {{volume: bigint, quoteVolume: bigint}[]}
      */
-    aggregatePrices(prevPrices, decimals) {
-        const prices = new Array(prevPrices.length)
+    aggregatePrices(expectedAssetsCount) {
+        const prices = new Array(expectedAssetsCount)
         for (const assetAccumulator of this.assets.values()) {
-            prices[assetAccumulator.index] = assetAccumulator.aggregate(decimals) || prevPrices[assetAccumulator.index] || 0n
+            prices[assetAccumulator.index] = assetAccumulator.getData()
         }
         return prices
     }
@@ -78,7 +77,7 @@ class DexAssetTradesAccumulator {
     constructor(asset, index) {
         this.asset = asset
         this.index = index
-        this.baseVolume = 0n
+        this.volume = 0n
         this.quoteVolume = 0n
     }
 
@@ -88,7 +87,7 @@ class DexAssetTradesAccumulator {
      * @param {BigInt} quoteVolume
      */
     processTrade(baseVolume, quoteVolume) {
-        this.baseVolume += baseVolume
+        this.volume += baseVolume
         this.quoteVolume += quoteVolume
     }
 
@@ -96,10 +95,17 @@ class DexAssetTradesAccumulator {
      * Aggregate price using volume-weighted price with a given precision
      * @param {BigInt} decimals
      */
-    aggregate(decimals) {
-        if (!this.baseVolume || !this.quoteVolume)
+    aggregate(decimals) { //TODO: move this logic to the node source code
+        if (!this.volume || !this.quoteVolume)
             return 0n
-        return (this.quoteVolume * (10n ** (2n * decimals))) / (this.baseVolume * (10n ** decimals))
+        return (this.quoteVolume * (10n ** (2n * decimals))) / (this.volume * (10n ** decimals))
+    }
+
+    /**
+     * @return {{volume: bigint, quoteVolume: bigint}}
+     */
+    getData() {
+        return {volume: this.volume, quoteVolume: this.quoteVolume}
     }
 }
 

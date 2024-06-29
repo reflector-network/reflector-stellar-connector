@@ -1,7 +1,6 @@
 const {Asset} = require('@stellar/stellar-base')
 const DbConnector = require('./db-connector')
 const {DexTradesAggregator} = require('./dex-trades-aggregator')
-const {parseStateData, encodeContractId, parseAccountSigners} = require('./contract-state-parser')
 
 /**
  * Initialize StellarCore database connection
@@ -16,44 +15,27 @@ function createDbConnection(dbConnectionProperties) {
  * @param {DbConnector} db - Database connector
  * @param {{type: number, code: string}} baseAsset - Base asset
  * @param {{type: number, code: string}[]} assets - Tracked assets
- * @param {Number} decimals - Price precision
  * @param {Number} from - Analyzed period timestamp (Unix timestamp)
  * @param {Number} period - Timeframe length, in second
- * @param {BigInt[]} prevPrices - Prices array from the previous round
- * @return {Promise<BigInt[]>}
+ * @param {Number} limit - Number of periods to fetch
+ * @return {Promise<{volume: bigint, quoteVolume: bigint}[][]>}
  */
-async function aggregateTrades({db, baseAsset, assets, decimals, from, period, prevPrices}) {
-    const tradesAggregator = new DexTradesAggregator(convertToStellarAsset(baseAsset), assets.map(a => convertToStellarAsset(a)))
-    //fetch and process tx results
-    await db.fetchProcessTxResults(from, from + period, r => tradesAggregator.processTxResult(r))
-    //aggregate prices and merge with previously set prices
-    return tradesAggregator.aggregatePrices(prevPrices, BigInt(decimals))
-}
-
-/**
- * Retrieve current contract state data
- * @param {DbConnector} db - Database connector
- * @param {String} contract - Contract ID in StrKey encoding
- * @return {Promise<{admin: String, lastTimestamp: BigInt, prices: BigInt[]}>}
- */
-async function retrieveContractState(db, contract){
-    const contractData = await db.fetchContractState(encodeContractId(contract))
-    //parse relevant data from the contract state
-    return parseStateData(contractData)
-}
-
-/**
- * Fetch account properties from the database
- * @param {DbConnector} db - Database connector
- * @param {String} account - Account address
- * @return {Promise<{sequence: BigInt, thresholds: Number[], signers: {address: String, weight: Number}[]}>}
- */
-async function retrieveAccountProps(db, account) {
-    const accountProps = await db.fetchAccountProps(account)
-    if (accountProps.signers) {
-        accountProps.signers = parseAccountSigners(accountProps.signers)
+async function aggregateTrades({db, baseAsset, assets, from, period, limit}) {
+    //convert asset format
+    const aggBaseAsset = convertToStellarAsset(baseAsset)
+    const aggAssets = assets.map(a => convertToStellarAsset(a))
+    //fetch and aggregate data for each period
+    const res = []
+    for (let i = 0; i < limit; i++) {
+        const lower = from + period * i
+        const upper = lower + period
+        const tradesAggregator = new DexTradesAggregator(aggBaseAsset, aggAssets)
+        //fetch and process tx results
+        await db.fetchProcessTxResults(lower, upper, r => tradesAggregator.processTxResult(r))
+        //aggregate prices and merge with previously set prices
+        res.push(tradesAggregator.aggregatePrices(assets.length))
     }
-    return accountProps
+    return res
 }
 
 function convertToStellarAsset(asset) {
@@ -74,4 +56,4 @@ function convertToStellarAsset(asset) {
 }
 
 
-module.exports = {createDbConnection, aggregateTrades, retrieveContractState, retrieveAccountProps}
+module.exports = {createDbConnection, aggregateTrades}

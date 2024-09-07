@@ -48,10 +48,8 @@ function convertToStellarAsset(asset) {
                 return Asset.native()
             else if (code && issuer)
                 return new Asset(code, issuer)
-            else
-                throw new Error(`Unsupported asset: ${asset.code}`)
         default:
-            throw new Error(`Unsupported asset type: ${asset.type}`)
+            return null
     }
 }
 

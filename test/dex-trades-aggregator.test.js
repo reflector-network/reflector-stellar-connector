@@ -7,8 +7,10 @@ describe('DexTradesAggregator', () => {
     const trackedAssets = [
         //two assets involved in trades
         new Asset('B', issuer),
+        null, //not supported asset
         new Asset('Y', issuer), //no trades
         new Asset('C', issuer),
+        undefined, //not supported asset
         new Asset('W', issuer)  //no trades
     ]
     const resPrices = [
@@ -21,8 +23,16 @@ describe('DexTradesAggregator', () => {
             volume: 0n
         },
         {
+            quoteVolume: 0n,
+            volume: 0n
+        },
+        {
             quoteVolume: 2016928760n,
             volume: 6032655521n
+        },
+        {
+            quoteVolume: 0n,
+            volume: 0n
         },
         {
             quoteVolume: 0n,

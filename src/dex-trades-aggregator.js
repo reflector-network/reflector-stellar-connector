@@ -12,6 +12,8 @@ class DexTradesAggregator {
         this.assets = new Map()
         for (let i = 0; i < assets.length; i++) {
             const asset = assets[i]
+            if (!asset)
+                continue
             this.assets.set(asset.toString(), new DexAssetTradesAccumulator(asset, i))
         }
     }
@@ -34,7 +36,7 @@ class DexTradesAggregator {
      * @return {{volume: bigint, quoteVolume: bigint}[]}
      */
     aggregatePrices(expectedAssetsCount) {
-        const prices = new Array(expectedAssetsCount)
+        const prices = Array.from({length: expectedAssetsCount}).map(_ => ({volume: 0n, quoteVolume: 0n}))
         for (const assetAccumulator of this.assets.values()) {
             prices[assetAccumulator.index] = assetAccumulator.getData()
         }

@@ -1,6 +1,8 @@
 const {Asset} = require('@stellar/stellar-base')
 const {xdrParseResult} = require('./meta-processor')
 
+const MIN_VOLUME = 100n
+
 class DexTradesAggregator {
     /**
      * @param {Asset} baseAsset
@@ -89,6 +91,8 @@ class DexAssetTradesAccumulator {
      * @param {BigInt} quoteVolume
      */
     processTrade(baseVolume, quoteVolume) {
+        if (baseVolume < MIN_VOLUME || quoteVolume < MIN_VOLUME)
+            return
         this.volume += baseVolume
         this.quoteVolume += quoteVolume
     }

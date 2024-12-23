@@ -1,6 +1,6 @@
-# @reflector/reflector-db-connector
+# @reflector/stellar-connector
 
-> StellarCore database connector for Reflector backend
+> Stellar asset price feed connector for Reflector backend
 
 ## Installation
 
@@ -9,37 +9,33 @@ Add package reference to the `dependencies` section of `package.json`
 ```json
 {
   "dependencies": {
-    "@reflector/reflector-db-connector": "github:reflector-network/reflector-db-connector#v2.0.0"
+    "@reflector/reflector-db-connector": "github:reflector-network/reflector-stellar-connector#v3.0.0"
   }
 }
 ```
 
 ## Usage
 
-Initialize CoreDB connection to work with.
-
-```js
-const db = createDbConnection('postgres://stellar:db_password@127.0.0.1:54321/futurenet')
-```  
-
-> Note: creating multiple DbConnector instances is bad idea, use singleton db connector instances locally to pass them
-to other functions.
+Please note that RPC server must
+have [`getTransactions`](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getTransactions)
+and [`getLedgerEntries`](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgerEntries)
+API endpoints enabled.
 
 Aggregate trades for a given period:
-
 ```js
+const {createRpcConnection} = require('@reflector/stellar-connector')
+
 aggregateTrades({
-    db,
-    baseAsset: new Asset('USD', 'GBCC..'),
+    rpcUrl: 'http://localhost:8080',
+    baseAsset: {type: 1, code: 'USDC:GA5...'},
     assets: [
-        new Asset('EUR', 'GC9L...'),
-        new Asset('CHF', 'GAA0...')
+        {type: 1, code: 'XRF:GCH...'},
+        {type: 1, code: 'AQUA:GBN...'}
     ],
-    from: 1693138200,
-    period: 300,
+    from: 1734909134,
+    period: 60,
     limit: 2
 }).then(res => console.log(res))
-
 /*[
     [
         {

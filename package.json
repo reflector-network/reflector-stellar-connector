@@ -1,24 +1,20 @@
 {
-  "name": "@reflector/reflector-db-connector",
-  "version": "2.0.3",
-  "description": "StellarCore database connector for Reflector backend",
+  "name": "@reflector/stellar-connector",
+  "version": "3.0.0",
+  "description": "Stellar asset price feed connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",
   "license": "MIT",
   "main": "src/index.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:reflector-network/reflector-db-connector.git"
+    "url": "git@github.com:reflector-network/reflector-stellar-connector.git"
   },
   "scripts": {
     "test": "jest"
   },
   "peerDependencies": {
-    "@stellar/stellar-base": "13.0.1"
-  },
-  "dependencies": {
-    "pg": "8.11.3",
-    "pg-cursor": "2.10.3"
+    "@stellar/stellar-sdk": ">=13"
   },
   "devDependencies": {
     "jest": "^29.6.4"

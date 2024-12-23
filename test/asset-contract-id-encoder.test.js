@@ -1,5 +1,5 @@
-const {Asset} = require('@stellar/stellar-base')
-const {encodeAssetContractId} = require('../src/asset-contract-id-encoder')
+const {Asset} = require('@stellar/stellar-sdk')
+const {encodeAssetContractId} = require('../src/asset-encoder')
 
 const futurenetPassphrase = 'Test SDF Future Network ; October 2022'
 

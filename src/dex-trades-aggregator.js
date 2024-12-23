@@ -1,4 +1,4 @@
-const {Asset} = require('@stellar/stellar-base')
+const {Asset} = require('@stellar/stellar-sdk')
 const {xdrParseResult} = require('./meta-processor')
 
 const MIN_VOLUME = 100n
@@ -47,10 +47,10 @@ class DexTradesAggregator {
 
     /**
      * Parse result XDR and process trades
-     * @param {Buffer} resultXdr
+     * @param {TransactionInfo} tx
      */
-    processTxResult(resultXdr) {
-        const res = xdrParseResult(Buffer.from(resultXdr, 'base64'))
+    processTx(tx) {
+        const res = xdrParseResult(tx.resultXdr, tx.txHash)
         if (!res?.length)
             return
         for (const trade of res) {

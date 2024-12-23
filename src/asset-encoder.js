@@ -1,4 +1,4 @@
-const {Asset, StrKey, hash, xdr} = require('@stellar/stellar-base')
+const {Asset, StrKey, hash, xdr} = require('@stellar/stellar-sdk')
 
 const passphraseMapping = {}
 
@@ -30,4 +30,25 @@ function encodeAssetContractId(asset, networkPassphrase) {
     return StrKey.encodeContract(hash(preimage.toXDR()))
 }
 
-module.exports = {encodeAssetContractId}
+
+/**
+ * Convert asset descriptor to Stellar Asset
+ * @param {{type:number,code:string,[issuer]:string}} asset
+ * @return {Asset|null}
+ */
+function convertToStellarAsset(asset) {
+    switch (asset.type) {
+        case 1: // Stellar asset
+            if (!asset.code)
+                throw new Error(`Asset code is required`)
+            const [code, issuer] = asset.code.split(':')
+            if (code === 'XLM' && !issuer)
+                return Asset.native()
+            else if (code && issuer)
+                return new Asset(code, issuer)
+    }
+    return null
+}
+
+
+module.exports = {encodeAssetContractId, convertToStellarAsset}

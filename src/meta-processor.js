@@ -1,13 +1,13 @@
-const {xdr} = require('@stellar/stellar-base')
+const {xdr} = require('@stellar/stellar-sdk')
 
 /**
  * Parse raw XDR result
- * @param {Buffer} resultXdr
+ * @param {TransactionResult} result
+ * @param {string} txHash
  * @return {Trade[]|null}
  */
-function xdrParseResult(resultXdr) {
-    const parsed = xdr.TransactionResultPair.fromXDR(resultXdr)
-    const innerResult = parsed.result().result()
+function xdrParseResult(result, txHash) {
+    const innerResult = result.result()
     const txResultState = innerResult.switch()
     if (txResultState.value < 0)
         return null //tx failed
@@ -22,7 +22,7 @@ function xdrParseResult(resultXdr) {
         }
         return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
     } catch (e) {
-        console.error(new AggregateError([e], 'Error processing tx ' + parsed.transactionHash().toString('hex')))
+        console.error(new AggregateError([e], 'Error processing tx ' + txHash))
         return null
     }
 }

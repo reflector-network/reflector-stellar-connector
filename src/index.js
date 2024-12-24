@@ -32,7 +32,7 @@ async function aggregateTrades({rpcUrl, baseAsset, assets, from, period, limit})
         tradesAggregator.processTradeInfos(tradesForPeriod)
         const volumes = tradesAggregator.aggregatePrices(assets.length)
         //add timestamps
-        volumes.forEach(v => v.ts = periodTo)
+        volumes.forEach(v => v.ts = periodFrom)
         results.push(volumes)
     }
     cache.clearOldTrades()

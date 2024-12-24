@@ -5,9 +5,17 @@ const { xdrParseResult } = require('./meta-processor')
 class TradesCache {
     constructor() {
         this.setLimit(15)
-        this.tradesData = new Map()
-        this.lastCachedLedger = 0
     }
+
+    /**
+     * @type {Map<number, {trades: Trade[], processedTxs: Set<string>}>}
+     */
+    tradesData = new Map()
+
+    /**
+     * @type {number}
+     */
+    lastCachedLedger = 0
 
     setLimit(limit) {
         this.limit = limit
@@ -19,19 +27,32 @@ class TradesCache {
     addTx(tx) {
         //normalize timestamp
         const txTimestamp = Math.floor(tx.createdAt / TradesCache.PERIOD) * TradesCache.PERIOD
-        if (!this.tradesData.get(txTimestamp)) //add only if not exists
-            this.tradesData.set(txTimestamp, {trades: [], processedTxs: new Set()})
 
-        const tsTrades = this.tradesData.get(txTimestamp)
-        if (tsTrades.processedTxs.has(tx.txHash)) //already processed
-            return
-        
-        const result = xdrParseResult(tx.resultXdr, tx.txHash)
-        for (const trade of result)
-            tsTrades.trades.push(trade)
+        //parse trades
+        const trades = xdrParseResult(tx.resultXdr, tx.txHash)
+        //add trades to the timestamp
+        this.addTxToTimestamp(tx.txHash, trades, txTimestamp)
+
+        //if the createdAt is the same as normalized timestamp, 
+        //we need to add the tx to the previous period as well, 
+        //because of inclusion logic in prev version
+        if (txTimestamp === tx.createdAt) 
+            this.addTxToTimestamp(tx.txHash, trades, txTimestamp - TradesCache.PERIOD)
 
         if (tx.ledger > this.lastCachedLedger)
             this.lastCachedLedger = tx.ledger
+    }
+
+    addTxToTimestamp(txHash, trades, timestamp) {
+        if (!this.tradesData.get(timestamp)) //add only if not exists
+            this.tradesData.set(timestamp, {trades: [], processedTxs: new Set()})
+
+        const tsTrades = this.tradesData.get(timestamp)
+        if (tsTrades.processedTxs.has(txHash)) //already processed
+            return
+        
+        tsTrades.processedTxs.add(txHash)
+        tsTrades.trades.push(...trades)
     }
 
     getTradesForPeriod(from, to) {

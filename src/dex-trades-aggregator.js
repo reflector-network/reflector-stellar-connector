@@ -46,6 +46,21 @@ class DexTradesAggregator {
     }
 
     /**
+     * Process trades
+     * @param {TradeInfo[]} trades
+     */
+    processTradeInfos(trades) {
+        for (const trade of trades) {
+            if (trade.assetSold.equals(this.baseAsset)) {
+                this.processTrade(trade.assetBought, trade.amountSold, trade.amountBought)
+            } else if (trade.assetBought.equals(this.baseAsset)) {
+                this.processTrade(trade.assetSold, trade.amountBought, trade.amountSold)
+            }
+            //ignore trades not involving base asset (for now)
+        }
+    }
+
+    /**
      * Parse result XDR and process trades
      * @param {TransactionInfo} tx
      */
@@ -54,10 +69,10 @@ class DexTradesAggregator {
         if (!res?.length)
             return
         for (const trade of res) {
-            if (Asset.fromOperation(trade.assetSold).equals(this.baseAsset)) {
-                this.processTrade(Asset.fromOperation(trade.assetBought), trade.amountSold, trade.amountBought)
-            } else if (Asset.fromOperation(trade.assetBought).equals(this.baseAsset)) {
-                this.processTrade(Asset.fromOperation(trade.assetSold), trade.amountBought, trade.amountSold)
+            if (trade.assetSold.equals(this.baseAsset)) {
+                this.processTrade(trade.assetBought, trade.amountSold, trade.amountBought)
+            } else if (trade.assetBought.equals(this.baseAsset)) {
+                this.processTrade(trade.assetSold, trade.amountBought, trade.amountSold)
             }
             //ignore trades not involving base asset (for now)
         }
@@ -95,16 +110,6 @@ class DexAssetTradesAccumulator {
             return
         this.volume += baseVolume
         this.quoteVolume += quoteVolume
-    }
-
-    /**
-     * Aggregate price using volume-weighted price with a given precision
-     * @param {BigInt} decimals
-     */
-    aggregate(decimals) { //TODO: move this logic to the node source code
-        if (!this.volume || !this.quoteVolume)
-            return 0n
-        return (this.quoteVolume * (10n ** (2n * decimals))) / (this.volume * (10n ** decimals))
     }
 
     /**

@@ -1,10 +1,5 @@
 const {rpc} = require('@stellar/stellar-sdk')
-
-/**
- * Cache for ts > ledger lookup (singleton)
- * @type {{sequence: number, ts: number}}
- */
-let lastCachedLedgerTimestamp
+const cache = require('./cache')
 
 class RpcConnector {
     /**
@@ -28,101 +23,63 @@ class RpcConnector {
     server
 
     /**
-     * @param {number} from - Range lower bound timestamp (inclusive)
-     * @param {number} to - Range upper bound timestamp (inclusive)
-     * @param {function} processResultCallback - Record processing callback
-     * @param {boolean} [onlySuccessfulTransactions] - Whether to process successful transactions only
+     * @param {number} from - Range lower bound ledger (inclusive)
+     * @param {number} to - Range upper bound ledger (inclusive)
      */
-    async fetchTransactions(from, to, processResultCallback, onlySuccessfulTransactions = true) {
+    async fetchTransactions(from, to) {
         const limit = 200
         let cursor = undefined
-        const fromLedger = await this.findSequenceByDate(from)
         while (true) {
             const params = cursor ?
                 {pagination: {limit, cursor}} :
-                {startLedger: fromLedger, pagination: {cursor}}
+                {startLedger: from, pagination: {cursor}}
             const res = await this.server.getTransactions(params)
             if (!res.transactions?.length) //no transactions returned by the cursor
                 break
             cursor = res.cursor
             let outOfRange = false
-            let processed = 0
             for (let tx of res.transactions) {
-                if (tx.createdAt > to) { //reached the upper boundary - stop processing transactions here
+                if (tx.ledger >= to) { //reached the upper boundary - stop processing transactions here
                     outOfRange = true
                     break
                 }
                 if (tx.status === 'SUCCESS') { //ignore
-                    processResultCallback(tx)
-                    processed++
+                    cache.addTx(tx)
                 }
-                lastCachedLedgerTimestamp = {sequence: tx.ledger, ts: tx.createdAt}
             }
-            console.log(processed)
             if (outOfRange) //end loop if we reached the upper boundary
                 break
         }
-        console.log('finished')
     }
 
     /**
-     * @param {number} date - Unix date
-     * @return {Promise<number>}
-     * @private
+     * @param {number} period - Period in seconds
+     * @param {number} limit - Number of periods to fetch
+     * @return {Promise<{from: number, to: number}[]>}
      */
-    async findSequenceByDate(date) {
-        //TODO: this approach is terrible - need to ask SDF to provide better API
-        //try to use cached value
-        if (lastCachedLedgerTimestamp && Math.abs(date - lastCachedLedgerTimestamp.ts) <= 10)
-            return lastCachedLedgerTimestamp.sequence + 1
-        //find the ledger
-        const maxAttempts = 50 //we cannot iterate endlessly, if we are off by more than 50 ledgers -- something is wrong
+    async getBatchInfos(period, limit) {
         const {sequence} = await this.server.getLatestLedger()
-        const now = Math.floor(new Date().getTime() / 1000)
-        let expected = sequence - Math.floor((now - date) / 6) //expect 6 lps
-        let candidate
-        for (let i = 0; i < maxAttempts; i++) {
-            const txGuess = await this.server.getTransactions({startLedger: expected, pagination: {limit: 1}})
-            if (!txGuess.transactions?.length) //no transactions returned by the cursor
-                break
-            const {ledger, createdAt} = txGuess.transactions[0]
-            if (createdAt === date)   //exact match
-                return ledger
-            if (createdAt >= date) {  //potential match
-                candidate = ledger    //use this sequence as candidate
-                expected = ledger - 1 //move back
-            } else {
-                if (candidate)
-                    return candidate  //it's the first ledger with timestamp < date -- return next ledger
-                expected = ledger + 1 //move forward to find first ledger with timestamp >= date
+        const ledgersInPeriod = Math.floor(period / 5) //5 lps
+        const batches = []
+        const lastCachedLedger = cache.getLastLedger()
+        let outOfRange = false
+        const getFromLedger = (ledger, batchIndex) => {
+            const from = ledger - ledgersInPeriod * batchIndex
+            if (from < lastCachedLedger) {
+                outOfRange = true
+                return lastCachedLedger + 1 //skip already cached ledgers
             }
+            return from
         }
-        throw new Error('Failed to find the ledger sequence by date from timestamp ' + date)
-    }
-
-    getTransactionsDirectly({startLedger, limit, cursor}) {
-        return this.callRpc('getTransactions', {
-            startLedger,
-            pagination: {
-                limit,
-                cursor
-            }
-        })
-    }
-
-    async callRpc(method, params) {
-        const res = await fetch(this.rpcUrl, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 8675309,
-                method,
-                params
-            })
-        })
-        const parsed = await res.json()
-        return parsed.result
+        let to = sequence
+        for (let i = 1; i <= limit; i++) {
+            const from = getFromLedger(sequence, i)
+            batches.push({from, to})
+            to = from - 1
+            if (outOfRange)
+                break
+        }
+        return batches
     }
 }
 

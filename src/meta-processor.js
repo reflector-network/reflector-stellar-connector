@@ -1,4 +1,4 @@
-const {xdr} = require('@stellar/stellar-sdk')
+const {xdr, Asset} = require('@stellar/stellar-sdk')
 
 /**
  * Parse raw XDR result
@@ -66,8 +66,8 @@ function processDexTrade(claimedAtom) {
     return {
         amountSold: BigInt(value.amountSold().toString()),
         amountBought: BigInt(value.amountBought().toString()),
-        assetSold: value.assetSold(),
-        assetBought: value.assetBought(),
+        assetSold: Asset.fromOperation(value.assetSold()),
+        assetBought: Asset.fromOperation(value.assetBought()),
         type
     }
 }
@@ -78,7 +78,7 @@ module.exports = {xdrParseResult}
  * @typedef {{}} Trade
  * @property {BigInt} amountSold
  * @property {BigInt} amountBought
- * @property {String} assetSold
- * @property {String} assetBought
+ * @property {Asset} assetSold
+ * @property {Asset} assetBought
  * @property {'offer'|'pool'} type
  */

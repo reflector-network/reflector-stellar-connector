@@ -9,7 +9,7 @@ Add package reference to the `dependencies` section of `package.json`
 ```json
 {
   "dependencies": {
-    "@reflector/reflector-db-connector": "github:reflector-network/reflector-stellar-connector#v3.0.0"
+    "@reflector/reflector-stellar-connector": "github:reflector-network/reflector-stellar-connector#v3.0.0"
   }
 }
 ```

@@ -30,6 +30,9 @@ class TradesCache {
 
         //parse trades
         const trades = xdrParseResult(tx.resultXdr, tx.txHash)
+        if (!trades?.length)
+            return
+
         //add trades to the timestamp
         this.addTxToTimestamp(tx.txHash, trades, txTimestamp)
 

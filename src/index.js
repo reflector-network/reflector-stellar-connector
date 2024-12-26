@@ -36,7 +36,6 @@ async function aggregateTrades({rpcUrl, baseAsset, assets, from, period, limit})
         results.push(volumes)
     }
     cache.clearOldTrades()
-    console.log('Last ledger:', cache.lastCachedLedger)
     return results
 }
 

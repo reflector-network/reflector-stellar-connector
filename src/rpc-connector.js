@@ -39,7 +39,7 @@ class RpcConnector {
             cursor = res.cursor
             let outOfRange = false
             for (let tx of res.transactions) {
-                if (tx.ledger >= to) { //reached the upper boundary - stop processing transactions here
+                if (tx.ledger > to) { //reached the upper boundary - stop processing transactions here
                     outOfRange = true
                     break
                 }

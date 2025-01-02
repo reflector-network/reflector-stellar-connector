@@ -17,7 +17,7 @@ class RpcConnector {
      */
     rpcUrl
     /**
-     * @type {RpcServer}
+     * @type {rpc.Server}
      * @private
      */
     server
@@ -32,8 +32,16 @@ class RpcConnector {
         while (true) {
             const params = cursor ?
                 {pagination: {limit, cursor}} :
-                {startLedger: from, pagination: {cursor}}
-            const res = await this.server.getTransactions(params)
+                {startLedger: from, pagination: {limit}}
+            const getTransactions = async () => {
+                try {
+                    return await this.server.getTransactions(params)
+                } catch (e) {
+                    console.log(params)
+                    throw e
+                }
+            }
+            const res = await getTransactions()
             if (!res.transactions?.length) //no transactions returned by the cursor
                 break
             cursor = res.cursor
@@ -47,7 +55,7 @@ class RpcConnector {
                     cache.addTx(tx)
                 }
             }
-            if (outOfRange) //end loop if we reached the upper boundary
+            if (res.transactions.length < limit || outOfRange) //end loop if we reached the upper boundary or no more transactions
                 break
         }
     }

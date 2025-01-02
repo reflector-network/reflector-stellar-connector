@@ -1,6 +1,6 @@
 {
   "name": "@reflector/stellar-connector",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Stellar asset price feed connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",

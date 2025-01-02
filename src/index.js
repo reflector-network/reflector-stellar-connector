@@ -28,7 +28,6 @@ async function aggregateTrades({rpcUrl, baseAsset, assets, from, period, limit})
         const periodTo = periodFrom + period
         const tradesAggregator = new DexTradesAggregator(aggBaseAsset, aggAssets)
         const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodTo)
-        console.log(`${periodTo}: ${tradesForPeriod.length}`)
         tradesAggregator.processTradeInfos(tradesForPeriod)
         const volumes = tradesAggregator.aggregatePrices(assets.length)
         //add timestamps

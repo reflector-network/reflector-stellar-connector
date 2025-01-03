@@ -1,13 +1,14 @@
 const {rpc} = require('@stellar/stellar-sdk')
-const cache = require('./cache')
 
 class RpcConnector {
     /**
      * Create Core DB connector instance
      * @param {string} rpcUrl
+     * @param {TradesCache} cache
      */
-    constructor(rpcUrl) {
+    constructor(rpcUrl, cache) {
         this.rpcUrl = rpcUrl
+        this.cache = cache
         this.server = new rpc.Server(rpcUrl, {allowHttp: true})
     }
 
@@ -17,7 +18,7 @@ class RpcConnector {
      */
     rpcUrl
     /**
-     * @type {rpc.Server}
+     * @type {RpcServer}
      * @private
      */
     server
@@ -33,15 +34,7 @@ class RpcConnector {
             const params = cursor ?
                 {pagination: {limit, cursor}} :
                 {startLedger: from, pagination: {limit}}
-            const getTransactions = async () => {
-                try {
-                    return await this.server.getTransactions(params)
-                } catch (e) {
-                    console.log(params)
-                    throw e
-                }
-            }
-            const res = await getTransactions()
+            const res = await this.getTransactions(params)
             if (!res.transactions?.length) //no transactions returned by the cursor
                 break
             cursor = res.cursor
@@ -51,13 +44,25 @@ class RpcConnector {
                     outOfRange = true
                     break
                 }
-                if (tx.status === 'SUCCESS') { //ignore
-                    cache.addTx(tx)
+                if (tx.status === 'SUCCESS') { //ignore failed transactions
+                    this.cache.addTx(tx)
                 }
             }
-            if (res.transactions.length < limit || outOfRange) //end loop if we reached the upper boundary or no more transactions
+            if (res.transactions.length < params.pagination.limit || outOfRange) //end loop if we reached the upper boundary
                 break
         }
+    }
+
+    async getTransactions(params) {
+        for (let i = 0; i < 3; i++) { //max 3 attempts
+            try {
+                return await this.server.getTransactions(params)
+            } catch (e) {
+                console.warn('Failed getTransactions request', params)
+                params.pagination.limit -= 10 //try to decrease the number of transactions to fetch
+            }
+        }
+        throw new Error('Failed to load transactions from RPC')
     }
 
     /**
@@ -69,7 +74,7 @@ class RpcConnector {
         const {sequence} = await this.server.getLatestLedger()
         const ledgersInPeriod = Math.floor(period / 5) //5 lps
         const batches = []
-        const lastCachedLedger = cache.getLastLedger()
+        const lastCachedLedger = this.cache.lastCachedLedger
         let outOfRange = false
         const getFromLedger = (ledger, batchIndex) => {
             const from = ledger - ledgersInPeriod * batchIndex
@@ -87,6 +92,7 @@ class RpcConnector {
             if (outOfRange)
                 break
         }
+        batches.reverse() //fix order
         return batches
     }
 }

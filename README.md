@@ -9,7 +9,7 @@ Add package reference to the `dependencies` section of `package.json`
 ```json
 {
   "dependencies": {
-    "@reflector/reflector-stellar-connector": "github:reflector-network/reflector-stellar-connector#v3.0.0"
+    "@reflector/stellar-connector": "github:reflector-network/reflector-stellar-connector#v3.2.0"
   }
 }
 ```
@@ -23,40 +23,35 @@ API endpoints enabled.
 
 Aggregate trades for a given period:
 ```js
-const {createRpcConnection} = require('@reflector/stellar-connector')
+const {createRpcConnection, trimTimestampTo} = require('@reflector/stellar-connector')
 
+const period = 60
+const limit = 7
+const from = trimTimestampTo(new Date().getTime() / 1000, period) - period * limit
+console.log('From', from)
 aggregateTrades({
-    rpcUrl: 'http://localhost:8080',
-    baseAsset: {type: 1, code: 'USDC:GA5...'},
+    rpcUrl: 'http://...',
+    baseAsset: {type: 1, code: 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'},
     assets: [
-        {type: 1, code: 'XRF:GCH...'},
-        {type: 1, code: 'AQUA:GBN...'}
+        {type: 1, code: 'XRF:GCHI6I3X62ND5XUMWINNNKXS2HPYZWKFQBZZYBSMHJ4MIP2XJXSZTXRF'},
+        {type: 1, code: 'AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'}
     ],
-    from: 1734909134,
-    period: 60,
-    limit: 2
-}).then(res => console.log(res))
-/*[
-    [
-        {
-            quoteVolume: 5319168566n,
-            volume: 10670398723n
-        },
-        {
-            quoteVolume: 0n,
-            volume: 0n
-        }
-    ],
-    [
-        {
-            quoteVolume: 4239198712n,
-            volume: 14068368020n
-        },        
-        {
-            quoteVolume: 2016928760n,
-            volume: 6032655521n
-        }
-    ]
+    from,
+    period,
+    limit
+})
+    .then(res => console.log(res))
+    .catch(e => console.error(e))
+/*
+[
+  [
+    { volume: 0n, quoteVolume: 0n, ts: 1735890540 },
+    { volume: 3937242822n, quoteVolume: 5298271n, ts: 1735890540 }
+  ],
+  [
+    { volume: 1346588n, quoteVolume: 398800n, ts: 1735890600 },
+    { volume: 295468416n, quoteVolume: 398800n, ts: 1735890600 }
+  ]
 ]*/
 ```
 

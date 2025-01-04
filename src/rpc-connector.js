@@ -53,13 +53,17 @@ class RpcConnector {
         }
     }
 
+    /**
+     * @param {{}} params
+     * @return {Promise<*>}
+     * @private
+     */
     async getTransactions(params) {
         for (let i = 0; i < 3; i++) { //max 3 attempts
             try {
                 return await this.server.getTransactions(params)
             } catch (e) {
                 console.warn('Failed getTransactions request', params)
-                params.pagination.limit -= 10 //try to decrease the number of transactions to fetch
             }
         }
         throw new Error('Failed to load transactions from RPC')
@@ -67,33 +71,34 @@ class RpcConnector {
 
     /**
      * @param {number} period - Period in seconds
-     * @param {number} limit - Number of periods to fetch
+     * @param {number} total - Number of periods to fetch
+     * @param {number} rangeLimit - Number of ranges to return
      * @return {Promise<{from: number, to: number}[]>}
      */
-    async getBatchInfos(period, limit) {
+    async generateLedgerRanges(period, total, rangeLimit) {
+        const expectedLedgersPerSecond = 5
+        //retrieve latest available ledger sequence
         const {sequence} = await this.server.getLatestLedger()
-        const ledgersInPeriod = Math.floor(period / 5) //5 lps
-        const batches = []
-        const lastCachedLedger = this.cache.lastCachedLedger
-        let outOfRange = false
-        const getFromLedger = (ledger, batchIndex) => {
-            const from = ledger - ledgersInPeriod * batchIndex
-            if (from < lastCachedLedger) {
-                outOfRange = true
-                return lastCachedLedger + 1 //skip already cached ledgers
-            }
-            return from
+        //retrieve last known processed ledger sequence
+        const {lastCachedLedger} = this.cache
+        //guess first ledger to load
+        let firstLedgerToLoad = sequence - Math.ceil(period / expectedLedgersPerSecond) * total
+        if (lastCachedLedger > firstLedgerToLoad) {
+            firstLedgerToLoad = lastCachedLedger + 1
         }
-        let to = sequence
-        for (let i = 1; i <= limit; i++) {
-            const from = getFromLedger(sequence, i)
-            batches.push({from, to})
-            to = from - 1
-            if (outOfRange)
-                break
+        //determine range size
+        const rangeSize = Math.ceil((sequence - firstLedgerToLoad) / rangeLimit)
+        //init result array
+        const ranges = new Array(rangeLimit)
+        //generate ranges
+        for (let i = 0; i < rangeLimit; i++) {
+            const from = firstLedgerToLoad + rangeSize * i
+            let to = from + rangeSize - 1
+            ranges[i] = {from, to}
         }
-        batches.reverse() //fix order
-        return batches
+        //set upper boundary for the last range to overcome possible rounding issues
+        ranges[rangeLimit - 1].to = sequence
+        return ranges
     }
 }
 

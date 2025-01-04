@@ -24,22 +24,25 @@ async function aggregateTrades({rpcUrl, baseAsset, assets, from, period, limit})
     //convert asset format
     const aggBaseAsset = convertToStellarAsset(baseAsset)
     const aggAssets = assets.map(a => convertToStellarAsset(a))
-
-    const batches = await rpc.getBatchInfos(period, limit + 1)
-
-    await Promise.all(batches.map((batchInfo) => rpc.fetchTransactions(batchInfo.from, batchInfo.to)))
-
+    //generate ledger sequence ranges to load transactions
+    const ranges = await rpc.generateLedgerRanges(period, limit + 1, 3)
+    //load ranges in parallel
+    await Promise.all(ranges.map(range => rpc.fetchTransactions(range.from, range.to)))
+    //prepare results
     let results = []
     for (let i = 0; i < limit; i++) {
         const periodFrom = from + period * i
         const tradesAggregator = new DexTradesAggregator(aggBaseAsset, aggAssets)
+        //retrieve trades for current period
         const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodFrom + period)
-        tradesAggregator.processTradeInfos(tradesForPeriod)
-        const volumes = tradesAggregator.aggregatePrices(assets.length)
-        //add timestamps
-        volumes.forEach(v => v.ts = periodFrom)
+        //accumulate trades
+        tradesAggregator.processPeriodTrades(tradesForPeriod)
+        //aggregate volumes
+        const volumes = tradesAggregator.aggregatePrices(assets.length, periodFrom)
+        //add to results
         results.push(volumes)
     }
+    //clean up unneeded entries from cache
     cache.evictExpired()
     return results
 }

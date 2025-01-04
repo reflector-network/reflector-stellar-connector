@@ -9,7 +9,7 @@ Add package reference to the `dependencies` section of `package.json`
 ```json
 {
   "dependencies": {
-    "@reflector/stellar-connector": "github:reflector-network/reflector-stellar-connector#v3.2.0"
+    "@reflector/stellar-connector": "github:reflector-network/reflector-stellar-connector#v3.3.0"
   }
 }
 ```
@@ -18,7 +18,7 @@ Add package reference to the `dependencies` section of `package.json`
 
 Please note that RPC server must
 have [`getTransactions`](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getTransactions)
-and [`getLedgerEntries`](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgerEntries)
+and [`getLatestLedger`](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLatestLedger)
 API endpoints enabled.
 
 Aggregate trades for a given period:

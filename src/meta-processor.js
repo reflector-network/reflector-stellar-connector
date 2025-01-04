@@ -47,7 +47,7 @@ function parseRawOpResult(rawOpResult) {
 /**
  * Parse DEX trades from claimed offers
  * @param {xdr.ClaimAtom} claimedAtom
- * @return {Trade}
+ * @return {Trade|null}
  */
 function processDexTrade(claimedAtom) {
     let type
@@ -63,13 +63,16 @@ function processDexTrade(claimedAtom) {
             throw new Error(`Unsupported claimed atom type: ` + claimedAtom.arm())
     }
     const value = claimedAtom.value()
-    return {
-        amountSold: BigInt(value.amountSold().toString()),
-        amountBought: BigInt(value.amountBought().toString()),
-        assetSold: Asset.fromOperation(value.assetSold()),
-        assetBought: Asset.fromOperation(value.assetBought()),
-        type
+    const res = {
+        type,
+        amountSold: value.amountSold()._value,
+        amountBought: value.amountBought()._value
     }
+    if (!res.amountSold || !res.amountBought)
+        return null
+    res.assetSold = Asset.fromOperation(value.assetSold())
+    res.assetBought = Asset.fromOperation(value.assetBought())
+    return res
 }
 
 module.exports = {xdrParseResult}

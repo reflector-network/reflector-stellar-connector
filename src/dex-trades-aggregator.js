@@ -35,40 +35,25 @@ class DexTradesAggregator {
     /**
      * Aggregate prices from all recorded trades and merge with previous prices
      * @param {number} expectedAssetsCount - Expected assets count (length of the output array)
-     * @return {{volume: bigint, quoteVolume: bigint}[]}
+     * @param {number} ts - Period timestamp
+     * @return {{volume: bigint, quoteVolume: bigint, ts: number}[]}
      */
-    aggregatePrices(expectedAssetsCount) {
-        const prices = Array.from({length: expectedAssetsCount}).map(_ => ({volume: 0n, quoteVolume: 0n}))
+    aggregatePrices(expectedAssetsCount, ts) {
+        const prices = Array.from({length: expectedAssetsCount}).map(_ => ({volume: 0n, quoteVolume: 0n, ts}))
         for (const assetAccumulator of this.assets.values()) {
-            prices[assetAccumulator.index] = assetAccumulator.getData()
+            const data = assetAccumulator.getData()
+            data.ts = ts
+            prices[assetAccumulator.index] = data
         }
         return prices
     }
 
     /**
      * Process trades
-     * @param {TradeInfo[]} trades
+     * @param {Trade[]} trades
      */
-    processTradeInfos(trades) {
+    processPeriodTrades(trades) {
         for (const trade of trades) {
-            if (trade.assetSold.equals(this.baseAsset)) {
-                this.processTrade(trade.assetBought, trade.amountSold, trade.amountBought)
-            } else if (trade.assetBought.equals(this.baseAsset)) {
-                this.processTrade(trade.assetSold, trade.amountBought, trade.amountSold)
-            }
-            //ignore trades not involving base asset (for now)
-        }
-    }
-
-    /**
-     * Parse result XDR and process trades
-     * @param {TransactionInfo} tx
-     */
-    processTx(tx) {
-        const res = xdrParseResult(tx.resultXdr, tx.txHash)
-        if (!res?.length)
-            return
-        for (const trade of res) {
             if (trade.assetSold.equals(this.baseAsset)) {
                 this.processTrade(trade.assetBought, trade.amountSold, trade.amountBought)
             } else if (trade.assetBought.equals(this.baseAsset)) {

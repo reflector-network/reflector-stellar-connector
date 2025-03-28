@@ -63,7 +63,7 @@ class RpcConnector {
             try {
                 return await this.server.getTransactions(params)
             } catch (e) {
-                console.warn('Failed getTransactions request', params)
+                console.warn({err: e, msg: 'Failed getTransactions request', args: params})
             }
         }
         throw new Error('Failed to load transactions from RPC')
@@ -97,7 +97,8 @@ class RpcConnector {
             ranges[i] = {from, to}
         }
         //set upper boundary for the last range to overcome possible rounding issues
-        ranges[rangeLimit - 1].to = sequence
+        //if response from the server is null, the loading process will crash. To avoid this, we subtract 1 from the last range
+        ranges[rangeLimit - 1].to = sequence - 1
         return ranges
     }
 }

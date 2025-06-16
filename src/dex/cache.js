@@ -1,5 +1,5 @@
+const {normalizeTimestamp} = require('../utils')
 const {xdrParseResult} = require('./meta-processor')
-const {trimTimestampTo} = require('./time-util')
 
 /**
  * Cache containing recent transactions, grouped by timestamp (rounded to period)
@@ -32,11 +32,11 @@ class TradesCache {
     tradesData = new Map()
 
     /**
-     * @param {TransactionInfo} tx
+     * @param {TransactionInfo} tx - transaction info object
      */
     addTx(tx) {
         //normalize timestamp
-        const txTimestamp = trimTimestampTo(tx.createdAt, this.period)
+        const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
 
         //parse trades
         const trades = xdrParseResult(tx.resultXdr, tx.txHash)
@@ -47,7 +47,7 @@ class TradesCache {
         this.addTxToPeriod(tx.txHash, trades, txTimestamp)
 
         /*//if the createdAt is the same as normalized timestamp,
-        //we need to add the tx to the previous period as well, 
+        //we need to add the tx to the previous period as well,
         //because of inclusion logic in prev version
         if (txTimestamp === tx.createdAt)
             this.addTxToTimestamp(tx.txHash, trades, txTimestamp - this.period)*/
@@ -99,7 +99,7 @@ class TradesCache {
         const timestamps = Array.from(this.tradesData.keys())
         timestamps.sort()
         const keysToRemove = timestamps.slice(0, removeCount)
-        for (let key of keysToRemove) {
+        for (const key of keysToRemove) {
             this.tradesData.delete(key)
         }
     }

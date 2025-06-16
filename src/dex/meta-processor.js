@@ -1,4 +1,4 @@
-const {xdr, Asset} = require('@stellar/stellar-sdk')
+const {Asset} = require('@stellar/stellar-sdk')
 
 /**
  * Parse raw XDR result
@@ -22,7 +22,7 @@ function xdrParseResult(result, txHash) {
         }
         return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
     } catch (e) {
-        console.error(new AggregateError([e], 'Error processing tx ' + txHash))
+        console.error(new Error([e], 'Error processing tx ' + txHash))
         return null
     }
 }
@@ -40,13 +40,14 @@ function parseRawOpResult(rawOpResult) {
         case 'manageSellOfferSuccess':
         case 'manageBuyOfferSuccess':
             return opResult.value().offersClaimed().map(claimedOffer => processDexTrade(claimedOffer))
+        default:
+            return null
     }
-    return null
 }
 
 /**
  * Parse DEX trades from claimed offers
- * @param {xdr.ClaimAtom} claimedAtom
+ * @param {xdr.ClaimAtom} claimedAtom - claimed atom from the operation
  * @return {Trade|null}
  */
 function processDexTrade(claimedAtom) {
@@ -70,8 +71,8 @@ function processDexTrade(claimedAtom) {
     }
     if (!res.amountSold || !res.amountBought)
         return null
-    res.assetSold = Asset.fromOperation(value.assetSold())
-    res.assetBought = Asset.fromOperation(value.assetBought())
+    res.assetSold = Asset.fromOperation(value.assetSold()).toString()
+    res.assetBought = Asset.fromOperation(value.assetBought()).toString()
     return res
 }
 
@@ -81,7 +82,7 @@ module.exports = {xdrParseResult}
  * @typedef {{}} Trade
  * @property {BigInt} amountSold
  * @property {BigInt} amountBought
- * @property {Asset} assetSold
- * @property {Asset} assetBought
+ * @property {string} assetSold
+ * @property {string} assetBought
  * @property {'offer'|'pool'} type
  */

@@ -1,10 +1,26 @@
-const {rpc} = require('@stellar/stellar-sdk')
+const {rpc, xdr, Address} = require('@stellar/stellar-sdk')
+
+/**
+ * Derive contract instance ledger key from contract address
+ * @param {String} contractId
+ * @return {xdr.LedgerKey}
+ * @private
+ */
+function generateInstanceLedgerKey(contractId) {
+    return xdr.LedgerKey.contractData(
+        new xdr.LedgerKeyContractData({
+            contract: new Address(contractId).toScAddress(),
+            key: xdr.ScVal.scvLedgerKeyContractInstance(),
+            durability: xdr.ContractDataDurability.persistent()
+        })
+    )
+}
 
 class RpcConnector {
     /**
      * Create Core DB connector instance
-     * @param {string} rpcUrl
-     * @param {TradesCache} cache
+     * @param {string} rpcUrl - URL of the RPC server with enabled `getTransactions` and `getLedgerEntries` endpoints
+     * @param {TradesCache} cache - Cache instance to store transactions
      */
     constructor(rpcUrl, cache) {
         this.rpcUrl = rpcUrl
@@ -18,7 +34,7 @@ class RpcConnector {
      */
     rpcUrl
     /**
-     * @type {RpcServer}
+     * @type {rpc.Server}
      * @private
      */
     server
@@ -39,7 +55,7 @@ class RpcConnector {
                 break
             cursor = res.cursor
             let outOfRange = false
-            for (let tx of res.transactions) {
+            for (const tx of res.transactions) {
                 if (tx.ledger > to) { //reached the upper boundary - stop processing transactions here
                     outOfRange = true
                     break
@@ -93,13 +109,32 @@ class RpcConnector {
         //generate ranges
         for (let i = 0; i < rangeLimit; i++) {
             const from = firstLedgerToLoad + rangeSize * i
-            let to = from + rangeSize - 1
+            const to = from + rangeSize - 1
             ranges[i] = {from, to}
         }
         //set upper boundary for the last range to overcome possible rounding issues
         //if response from the server is null, the loading process will crash. To avoid this, we subtract 1 from the last range
         ranges[rangeLimit - 1].to = sequence - 1
         return ranges
+    }
+
+    /**
+     * Load ledger entries from RPC
+     * @param {string[]} contracts - Array of contract IDs to load
+     * @return {Promise<ContractDataEntry[]>}
+     * @private
+     */
+    async loadContractsData(contracts) {
+        //create contract props mapping
+        const keys = contracts.map(contract => generateInstanceLedgerKey(contract))
+        for (let i = 0; i < 3; i++) { //max 3 attempts
+            try {
+                return await this.server.getLedgerEntries(...keys)
+            } catch (e) {
+                console.warn({err: e, msg: 'Failed getTransactions request'})
+            }
+        }
+        throw new Error('Failed to load contracts data from RPC')
     }
 }
 

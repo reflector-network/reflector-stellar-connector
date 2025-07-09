@@ -32,13 +32,13 @@ class AggregatorBase {
     }
 
     /**
-     * @type {Asset}
+     * @type {string}
      * @readonly
      */
     baseAsset
 
     /**
-     * @type {Map<String, AssetVolumesAccumulator>}
+     * @type {Map<string, AssetVolumesAccumulator>}
      * @readonly
      */
     assets
@@ -54,13 +54,13 @@ class AggregatorBase {
     }
 
     /**
-     * @param {string} assetKey - asset to add volumes for
+     * @param {string} asset - asset to add volumes for
      * @param {BigInt} baseVolume - base volume
      * @param {BigInt} quoteVolume - quote volume
      * @private
      */
-    addVolumes(assetKey, baseVolume, quoteVolume) {
-        const accumulator = this.assets.get(assetKey)
+    addVolumes(asset, baseVolume, quoteVolume) {
+        const accumulator = this.assets.get(asset)
         if (!accumulator)
             return
         accumulator.addVolumes(baseVolume, quoteVolume)

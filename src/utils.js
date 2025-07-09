@@ -1,4 +1,4 @@
-const {Asset, StrKey, hash, xdr} = require('@stellar/stellar-sdk')
+const {Asset, StrKey, hash, xdr, scValToNative} = require('@stellar/stellar-sdk')
 
 /**
  * Default number of decimals for price calculations
@@ -14,7 +14,7 @@ const DEFAULT_DECIMALS = 7
  * @returns {BigInt}
  */
 function getVWAP(volume, quoteVolume) {
-    const preciseQuoteVolume = getPreciseValue(quoteVolume, 7) //multiply decimals by 2 to get correct price
+    const preciseQuoteVolume = scaleValue(quoteVolume, 7) //multiply decimals by 2 to get correct price
     if (preciseQuoteVolume === 0n || volume === 0n)
         return 0n
     return preciseQuoteVolume / volume
@@ -26,7 +26,7 @@ function getVWAP(volume, quoteVolume) {
  * @param {number} decimals - number of decimals
  * @returns {BigInt}
  */
-function getPreciseValue(value, decimals) {
+function scaleValue(value, decimals) {
     if (typeof value !== 'bigint')
         throw new Error('Value should be expressed as BigInt')
     if (typeof decimals !== 'number' || isNaN(decimals))
@@ -75,7 +75,6 @@ function encodeAssetContractId(asset, networkPassphrase) {
     const preimage = xdr.HashIdPreimage.envelopeTypeContractId(assetContractId)
     return StrKey.encodeContract(hash(preimage.toXDR()))
 }
-
 
 /**
  * Convert asset descriptor to Stellar Asset
@@ -129,11 +128,41 @@ function adjustPrecision(value, digits, targetDigits = DEFAULT_DECIMALS) {
     }
 }
 
+
+/**
+ * Returns native storage
+ * @param {xdr.ContractDataEntry} contractEntry - contract data entry
+ * @param {string[]} [keys] - keys to extract from storage (optional)
+ * @returns {object}
+ */
+function getContractValues(contractEntry, keys = []) {
+    if (!contractEntry) {
+        throw new Error('Contract entry is required')
+    }
+    if (!Array.isArray(keys)) {
+        throw new Error('Keys should be an array of strings')
+    }
+    const data = contractEntry.val.contractData().val().instance()
+    if (!data)
+        return {}
+    const storage = {}
+    const entries = data.storage()
+    for (const entry of entries) {
+        const key = scValToNative(entry.key())
+        if (keys.length > 0 && !keys.includes(key[0]))
+            continue
+        const val = scValToNative(entry.val())
+        storage[key] = val
+    }
+    return storage
+}
+
 module.exports = {
     getVWAP,
     normalizeTimestamp,
     encodeAssetContractId,
     convertToStellarAsset,
     adjustPrecision,
+    getContractValues,
     DEFAULT_DECIMALS
 }

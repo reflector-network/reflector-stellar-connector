@@ -1,10 +1,5 @@
 const AggregatorBase = require('../aggregator-base')
 
-/**
- * @typedef {import('@stellar/stellar-sdk').Asset} Asset
- * @typedef
- */
-
 class DexTradesAggregator extends AggregatorBase {
 
     /**

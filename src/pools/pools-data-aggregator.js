@@ -1,9 +1,5 @@
 const AggregatorBase = require('../aggregator-base')
 
-/**
- * @typedef {import('@stellar/stellar-sdk').Asset} Asset
- */
-
 class PoolsDataAggregator extends AggregatorBase {
 
     /**

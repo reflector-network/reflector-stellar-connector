@@ -1,9 +1,5 @@
 /*eslint-disable no-undef */
-const {Server} = require('@stellar/stellar-sdk/rpc')
-const {xdr, StrKey, Asset} = require('@stellar/stellar-base')
-const aquariusProvider = require('../src/pools/pool-data-provider')
-const RpcConnector = require('../src/rpc-connector')
-const {getPoolsData} = require('../src/pools')
+const {Asset} = require('@stellar/stellar-base')
 const PoolsDataAggregator = require('../src/pools/pools-data-aggregator')
 
 function stringify(obj) {

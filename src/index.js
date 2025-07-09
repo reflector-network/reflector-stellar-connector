@@ -15,19 +15,20 @@ let cache
  *  rpcUrl: string,
  *  baseAsset: {type: number, code: string},
  *  assets: {type: number, code: string}[],
+ *  network: string,
  *  from: number,
  *  period: number,
  *  limit: number
  * }} options - Options object
  * @return {[{price: BigInt, ts: number, type: string}][]}
  */
-async function aggregateTrades({rpcUrl, baseAsset, assets, from, period, limit}) {
+async function aggregateTrades({rpcUrl, network, baseAsset, assets, from, period, limit}) {
     //convert asset format
     const aggBaseAsset = convertToStellarAsset(baseAsset)
     const aggAssets = assets.map(a => convertToStellarAsset(a))
     const rpc = new RpcConnector(rpcUrl, cache)
     const tradesDataPromise = getDexData(rpc, aggBaseAsset, aggAssets, from, period, limit)
-    const poolsDataPromise = getPoolsData(rpc, aggBaseAsset, aggAssets, from, period, limit)
+    const poolsDataPromise = getPoolsData(rpc, network, aggBaseAsset, aggAssets, from, period, limit)
     //wait for both promises to resolve
     const [tradesData, poolsData] = await Promise.all([tradesDataPromise, poolsDataPromise])
 

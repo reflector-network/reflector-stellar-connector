@@ -44,33 +44,35 @@ class RpcConnector {
      * @param {number} to - Range upper bound ledger (inclusive)
      */
     async fetchTransactions(from, to) {
-        const limit = 200
-        let cursor = undefined
-        while (true) {
-            const params = cursor ?
-                {pagination: {limit, cursor}} :
-                {startLedger: from, pagination: {limit}}
+        const processTransactions = async (params) => {
             const res = await this.getTransactions(params)
-            if (!res.transactions?.length) //no transactions returned by the cursor
-                break
-            cursor = res.cursor
-            let outOfRange = false
-            for (const tx of res.transactions) {
+            const transactions = res.transactions || []
+            if (transactions.length === 0)
+                return //no transactions to process - stop processing
+            for (const tx of transactions) {
                 if (tx.ledger > to) { //reached the upper boundary - stop processing transactions here
-                    outOfRange = true
-                    break
+                    return
                 }
                 if (tx.status === 'SUCCESS') { //ignore failed transactions
                     this.cache.addTx(tx)
                 }
             }
-            if (res.transactions.length < params.pagination.limit || outOfRange) //end loop if we reached the upper boundary
-                break
+            return res.cursor //continue processing transactions
         }
+
+        const limit = 200
+        let cursor = undefined
+        do {
+            const params = cursor ?
+                {pagination: {limit, cursor}} :
+                {startLedger: from, pagination: {limit}}
+            //if we reached the upper boundary or no more transactions returned
+            cursor = await processTransactions(params)
+        } while (cursor)
     }
 
     /**
-     * @param {{}} params
+     * @param {{}} params - Parameters for the getTransactions request
      * @return {Promise<*>}
      * @private
      */
@@ -92,13 +94,13 @@ class RpcConnector {
      * @return {Promise<{from: number, to: number}[]>}
      */
     async generateLedgerRanges(period, total, rangeLimit) {
-        const expectedLedgersPerSecond = 5
+        const expectedSecondsPerLedger = await this.getSecondsPerLedger()
         //retrieve latest available ledger sequence
         const {sequence} = await this.server.getLatestLedger()
         //retrieve last known processed ledger sequence
         const {lastCachedLedger} = this.cache
         //guess first ledger to load
-        let firstLedgerToLoad = sequence - Math.ceil(period / expectedLedgersPerSecond) * total
+        let firstLedgerToLoad = sequence - Math.ceil(period / expectedSecondsPerLedger) * total
         if (lastCachedLedger > firstLedgerToLoad) {
             firstLedgerToLoad = lastCachedLedger + 1
         }
@@ -118,18 +120,69 @@ class RpcConnector {
         return ranges
     }
 
+    async getSecondsPerLedger() {
+        //retrieve latest available ledger sequence
+        const {sequence} = await this.server.getLatestLedger()
+        //TODO: use sdk method when it will be available
+        //retrieve info about ledgers
+        const options = {
+            jsonrpc: '2.0',
+            id: Date.now(),
+            method: "getLedgers",
+            params:
+            {
+                startLedger: sequence,
+                pagination: {limit: 1}
+            }
+        }
+        const response = await fetch(this.server.serverURL.toString(), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(options)
+        }).then(res => res.json())
+
+        if (!response?.result)
+            throw new Error('Failed to load ledgers from RPC')
+
+        const {latestLedgerCloseTime, latestLedger, oldestLedgerCloseTime, oldestLedger} = response.result
+
+        //compute seconds per ledger
+        const secondsPerLedger = (latestLedgerCloseTime - oldestLedgerCloseTime) / (latestLedger - oldestLedger)
+        return secondsPerLedger
+    }
+
     /**
      * Load ledger entries from RPC
      * @param {string[]} contracts - Array of contract IDs to load
      * @return {Promise<ContractDataEntry[]>}
-     * @private
      */
     async loadContractsData(contracts) {
         //create contract props mapping
-        const keys = contracts.map(contract => generateInstanceLedgerKey(contract))
+        const generateKeys = () => {
+            const maxEntries = 200 //max entries per request
+
+            let currentChunk = [] //current chunk of keys
+            const chunks = [currentChunk]
+            for (const contract of contracts) {
+                if (currentChunk.length >= maxEntries) { //max entries per request
+                    currentChunk = []
+                    chunks.push(currentChunk)
+                }
+                currentChunk.push(generateInstanceLedgerKey(contract))
+            }
+            return chunks
+        }
+        const keyChunks = generateKeys()
         for (let i = 0; i < 3; i++) { //max 3 attempts
             try {
-                return await this.server.getLedgerEntries(...keys)
+                const data = []
+                for (const chunk of keyChunks) {
+                    const chunkData = await this.server.getLedgerEntries(...chunk)
+                    if (chunkData?.entries) {
+                        data.push(...chunkData.entries)
+                    }
+                }
+                return data
             } catch (e) {
                 console.warn({err: e, msg: 'Failed getTransactions request'})
             }

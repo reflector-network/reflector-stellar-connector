@@ -1,4 +1,3 @@
-const TradesCache = require('./cache')
 const DexTradesAggregator = require('./dex-trades-aggregator')
 
 /**
@@ -23,9 +22,6 @@ let cache
  */
 async function getDexData(rpc, assets, baseAsset, from, period, limit) {
     try {
-        if (!cache) {
-            cache = new TradesCache(period)
-        }
         //generate ledger sequence ranges to load transactions
         const ranges = await rpc.generateLedgerRanges(period, limit + 1, 3)
         //load ranges in parallel

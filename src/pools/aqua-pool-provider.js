@@ -1,5 +1,5 @@
 /*eslint-disable class-methods-use-this */
-const {DEFAULT_DECIMALS, adjustPrecision, getContractValues} = require('../utils')
+const {DEFAULT_DECIMALS, adjustPrecision, getAquaPoolContractValues} = require('../utils')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
 
@@ -12,7 +12,7 @@ const PoolType = require('./pool-type')
  * @return {{reserves: BigInt[], token: string}} - reserves array. First element is base asset reserve, second is quote asset reserve.
  */
 function extractAquaPoolData(contractData, baseTokenId, quoteTokenIds) {
-    const storage = getContractValues(contractData, ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB'])
+    const storage = getAquaPoolContractValues(contractData, ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB'])
     const digits = storage.Decimals !== undefined ? storage.Decimals : [DEFAULT_DECIMALS, DEFAULT_DECIMALS]
     const reserves = storage.ReserveA !== undefined
         ? [storage.ReserveA, storage.ReserveB]

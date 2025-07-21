@@ -135,7 +135,7 @@ function adjustPrecision(value, digits, targetDigits = DEFAULT_DECIMALS) {
  * @param {string[]} [keys] - keys to extract from storage (optional)
  * @returns {object}
  */
-function getContractValues(contractEntry, keys = []) {
+function getAquaPoolContractValues(contractEntry, keys = []) {
     if (!contractEntry) {
         throw new Error('Contract entry is required')
     }
@@ -149,7 +149,7 @@ function getContractValues(contractEntry, keys = []) {
     const entries = data.storage()
     for (const entry of entries) {
         const key = scValToNative(entry.key())
-        if (keys.length > 0 && !keys.includes(key[0]))
+        if (keys.length > 0 && !keys.includes(key[0])) //key[0] because keys are stored as arrays in Aqua contracts
             continue
         const val = scValToNative(entry.val())
         storage[key] = val
@@ -163,6 +163,6 @@ module.exports = {
     encodeAssetContractId,
     convertToStellarAsset,
     adjustPrecision,
-    getContractValues,
+    getAquaPoolContractValues,
     DEFAULT_DECIMALS
 }

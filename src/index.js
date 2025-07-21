@@ -2,12 +2,13 @@ const RpcConnector = require('./rpc-connector')
 const {getDexData} = require('./dex')
 const {getPoolsData} = require('./pools')
 const {normalizeTimestamp, convertToStellarAsset, getVWAP} = require('./utils')
+const TradesCache = require('./dex/cache')
 
 /**
  * @typedef {import('./asset-volumes-accumulator')} AssetVolumesAccumulator
  */
 
-let cache
+const cache = new TradesCache()
 
 /**
  * Aggregate trades and prices

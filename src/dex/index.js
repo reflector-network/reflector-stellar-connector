@@ -13,14 +13,14 @@ let cache
 /**
  * Load trades data for the specified assets and base asset
  * @param {RpcConnector} rpc - RPC server instance
- * @param {Asset[]} assets - List of assets to aggregate trades for
  * @param {Asset} baseAsset - Base asset to aggregate trades against
+ * @param {Asset[]} assets - List of assets to aggregate trades for
  * @param {number} from - Start timestamp for the aggregation period
  * @param {number} period - Length of each aggregation period in seconds
  * @param {number} limit - Number of aggregation periods to fetch
  * @return {Promise<[AssetVolumesAccumulator[]]>} - Aggregated trades data for each period
  */
-async function getDexData(rpc, assets, baseAsset, from, period, limit) {
+async function getDexData(rpc, baseAsset, assets, from, period, limit) {
     try {
         //generate ledger sequence ranges to load transactions
         const ranges = await rpc.generateLedgerRanges(period, limit + 1, 3)

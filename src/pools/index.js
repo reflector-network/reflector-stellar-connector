@@ -22,21 +22,24 @@ const aquaPoolProvider = new AquaPoolProvider()
  * @return {Promise<[AssetVolumesAccumulator[]]>} - Aggregated pools data for each period, but only the last period is filled with data
  */
 async function getPoolsData(rpc, network, baseAsset, assets, from, period, limit) {
-
-    console.log('Loading pools module...')
-    const ts = from + period * (limit - 1)
-    //load pool reserves data
-    const totalReserves = await loadPoolReserves(rpc, network, baseAsset, assets)
-    if (!totalReserves || totalReserves.length === 0) {
-        console.warn('No pool reserves data found')
+    try {
+        const ts = from + period * (limit - 1)
+        //load pool reserves data
+        const totalReserves = await loadPoolReserves(rpc, network, baseAsset, assets)
+        if (!totalReserves || totalReserves.length === 0) {
+            console.warn('No pool reserves data found')
+            return []
+        }
+        //process pool reserves data
+        const poolsAggregator = new PoolsDataAggregator(baseAsset, assets, ts)
+        poolsAggregator.processTokenReserves(totalReserves)
+        const result = Array.from({length: limit}).fill([])
+        result[limit - 1] = poolsAggregator.volumes
+        return result
+    } catch (err) {
+        console.error({msg: 'Error fetching pools data', err})
         return []
     }
-    //process pool reserves data
-    const poolsAggregator = new PoolsDataAggregator(baseAsset, assets, ts)
-    poolsAggregator.processTokenReserves(totalReserves)
-    const result = Array.from({length: limit}).fill([])
-    result[limit - 1] = poolsAggregator.volumes
-    return result
 }
 
 /**

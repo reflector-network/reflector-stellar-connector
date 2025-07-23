@@ -86,7 +86,7 @@ class AquaPoolProvider extends PoolProviderBase {
      * @param {string} network - network passphrase
      * @return {{reserves: BigInt[], asset: string}[]}
      */
-    async processPoolsData(poolInstances, baseAsset, assets, network) {
+    processPoolsData(poolInstances, baseAsset, assets, network) {
         const baseTokenId = PoolProviderBase.__getContractIdFromAsset(baseAsset, network)
         const assetTokenIds = new Map(assets.map(asset => [PoolProviderBase.__getContractIdFromAsset(asset, network), asset.toString()]))
         const result = []

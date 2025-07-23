@@ -41,8 +41,8 @@ async function aggregateTrades({rpcUrl, network, baseAsset, assets, from, period
         const ts = from + period * i
         for (let j = 0; j < assets.length; j++) {
             const price = getPrice(
-                (tradesData[i]?.[j] || {volume: 0n, quoteVolume: 0n}),
-                (poolsData[i]?.[j] || {volume: 0n, quoteVolume: 0n})
+                tradesData[i]?.[j],
+                poolsData[i]?.[j]
             )
             data[i][j] = {
                 price,

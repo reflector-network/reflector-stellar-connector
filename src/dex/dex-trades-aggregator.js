@@ -9,9 +9,9 @@ class DexTradesAggregator extends AggregatorBase {
     processPeriodTrades(trades) {
         for (const trade of trades) {
             if (trade.assetSold === this.baseAsset) {
-                this.addVolumes(trade.assetBought, trade.amountBought, trade.amountSold)
+                this.addVolumes(trade.assetBought, trade.amountSold, trade.amountBought)
             } else if (trade.assetBought === this.baseAsset) {
-                this.addVolumes(trade.assetSold, trade.amountSold, trade.amountBought)
+                this.addVolumes(trade.assetSold, trade.amountBought, trade.amountSold)
             }
             //ignore trades not involving base asset (for now)
         }

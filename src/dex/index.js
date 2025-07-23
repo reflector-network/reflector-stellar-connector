@@ -6,11 +6,6 @@ const DexTradesAggregator = require('./dex-trades-aggregator')
  */
 
 /**
- * @type {TradesCache}
- */
-let cache
-
-/**
  * Load trades data for the specified assets and base asset
  * @param {RpcConnector} rpc - RPC server instance
  * @param {Asset} baseAsset - Base asset to aggregate trades against
@@ -32,7 +27,7 @@ async function getDexData(rpc, baseAsset, assets, from, period, limit) {
             const periodFrom = from + period * i
             const tradesAggregator = new DexTradesAggregator(baseAsset, assets, periodFrom)
             //retrieve trades for current period
-            const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodFrom + period)
+            const tradesForPeriod = rpc.cache.getTradesForPeriod(periodFrom, periodFrom + period)
             //accumulate trades
             tradesAggregator.processPeriodTrades(tradesForPeriod)
             //aggregate volumes
@@ -41,7 +36,7 @@ async function getDexData(rpc, baseAsset, assets, from, period, limit) {
             results.push(volumes)
         }
         //clean up unneeded entries from cache
-        cache.evictExpired()
+        rpc.cache.evictExpired()
         return results
     } catch (err) {
         console.error({msg: 'Error fetching dex data', err})

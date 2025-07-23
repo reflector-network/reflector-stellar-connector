@@ -15,9 +15,10 @@ const DEFAULT_DECIMALS = 7
  */
 function getVWAP(volume, quoteVolume) {
     const preciseVolume = scaleValue(volume, DEFAULT_DECIMALS * 2) //multiply decimals by 2 to get correct price
-    if (preciseVolume === 0n || quoteVolume === 0n)
+    const preciseQuoteVolume = scaleValue(quoteVolume, DEFAULT_DECIMALS)
+    if (preciseVolume === 0n || preciseQuoteVolume === 0n)
         return 0n
-    return preciseVolume / quoteVolume
+    return preciseVolume / preciseQuoteVolume
 }
 
 /**

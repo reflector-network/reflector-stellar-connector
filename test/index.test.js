@@ -1,10 +1,9 @@
 /*eslint-disable no-undef */
-const {Asset} = require('@stellar/stellar-sdk')
 const {aggregateTrades} = require('../src/index')
 const RpcConnector = require('../src/rpc-connector')
 const {getDexData} = require('../src/dex')
 const {getPoolsData} = require('../src/pools')
-const {adjustPrecision} = require('../src/utils')
+const {adjustPrecision, getVWAP} = require('../src/utils')
 
 jest.mock('../src/rpc-connector')
 jest.mock('../src/dex')
@@ -29,14 +28,18 @@ describe('aggregateTrades', () => {
 
         RpcConnector.mockImplementation(() => mockRpcInstance)
 
-        getDexData.mockResolvedValue(Promise.resolve([
-            [{volume: adjustPrecision(100n, 0), quoteVolume: adjustPrecision(200n, 0), ts: 1620000000}],
-            [{volume: adjustPrecision(150n, 0), quoteVolume: adjustPrecision(300n, 0), ts: 1620003600}]
-        ]))
-        getPoolsData.mockResolvedValue([
+        const dexData = [
+            [{volume: adjustPrecision(100n, 14), quoteVolume: adjustPrecision(200n, 14), ts: 1620000000}],
+            [{volume: adjustPrecision(150n, 14), quoteVolume: adjustPrecision(300n, 14), ts: 1620003600}]
+        ]
+
+        const poolsData = [
             null,
-            [{volume: adjustPrecision(75n, 0), quoteVolume: adjustPrecision(150n, 0)}]
-        ])
+            [{volume: adjustPrecision(78n, 14), quoteVolume: adjustPrecision(154n, 14)}]
+        ]
+
+        getDexData.mockResolvedValue(Promise.resolve(dexData))
+        getPoolsData.mockResolvedValue(Promise.resolve(poolsData))
 
         const options = {
             rpcUrl: 'http://localhost:8003',
@@ -50,9 +53,11 @@ describe('aggregateTrades', () => {
 
         const result = await aggregateTrades(options)
 
+        const price1 = getVWAP(dexData[0][0].volume, dexData[0][0].quoteVolume)
+        const price2 = getVWAP(dexData[1][0].volume + poolsData[1][0].volume, dexData[1][0].quoteVolume + poolsData[1][0].quoteVolume)
         expect(serializeWithBigInt(result)).toEqual(serializeWithBigInt([
-            [{price: adjustPrecision(2n, 0).toString(), ts: 1620000000, type: 'price'}],
-            [{price: adjustPrecision(2n, 0).toString(), ts: 1620003600, type: 'price'}]
+            [{price: price1.toString(), ts: 1620000000, type: 'price'}],
+            [{price: price2.toString(), ts: 1620003600, type: 'price'}]
         ]))
     }, 30000)
 
@@ -77,4 +82,6 @@ describe('aggregateTrades', () => {
             [{price: 0n, ts: 1620003600, type: 'price'}]
         ])
     })
+
+
 })

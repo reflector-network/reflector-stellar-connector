@@ -1,7 +1,7 @@
 const RpcConnector = require('./rpc-connector')
 const {getDexData} = require('./dex')
 const {getPoolsData} = require('./pools')
-const {normalizeTimestamp, convertToStellarAsset, getVWAP} = require('./utils')
+const {normalizeTimestamp, convertToStellarAsset, getVWAP, TARGET_DECIMALS} = require('./utils')
 const TradesCache = require('./dex/cache')
 
 /**

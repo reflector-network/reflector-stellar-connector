@@ -21,8 +21,8 @@ describe('DexTradesAggregator', () => {
     ]
     const resPrices = [
         {
-            quoteVolume: 5319168566n,
-            volume: 10670398723n,
+            quoteVolume: 10670398723n,
+            volume: 5319168566n,
             ts: 1
         },
         {
@@ -36,8 +36,8 @@ describe('DexTradesAggregator', () => {
             ts: 1
         },
         {
-            quoteVolume: 2016928760n,
-            volume: 6032655521n,
+            quoteVolume: 6032655521n,
+            volume: 2016928760n,
             ts: 1
         },
         {

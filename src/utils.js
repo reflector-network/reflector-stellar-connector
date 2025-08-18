@@ -1,4 +1,4 @@
-const {Asset, StrKey, hash, xdr, scValToNative} = require('@stellar/stellar-sdk')
+const {Asset, StrKey, hash, xdr} = require('@stellar/stellar-sdk')
 
 /**
  * Default number of decimals for price calculations
@@ -8,14 +8,22 @@ const {Asset, StrKey, hash, xdr, scValToNative} = require('@stellar/stellar-sdk'
 const DEFAULT_DECIMALS = 7
 
 /**
+ * Target number of decimals for price calculations
+ * @type {number}
+ * @constant
+ */
+const TARGET_DECIMALS = 14
+
+/**
  * Calculate price from volume and quote volume
  * @param {BigInt} volume - volume
  * @param {BigInt} quoteVolume - quote volume
+ * @param {number} [decimals] - number of decimals to scale the result (default is TARGET_DECIMALS = 14)
  * @returns {BigInt}
  */
-function getVWAP(volume, quoteVolume) {
-    const preciseVolume = scaleValue(volume, DEFAULT_DECIMALS * 2) //multiply decimals by 2 to get correct price
-    const preciseQuoteVolume = scaleValue(quoteVolume, DEFAULT_DECIMALS)
+function getVWAP(volume, quoteVolume, decimals = TARGET_DECIMALS) {
+    const preciseVolume = scaleValue(volume, decimals * 2) //multiply decimals by 2 to get correct price
+    const preciseQuoteVolume = scaleValue(quoteVolume, decimals)
     if (preciseVolume === 0n || preciseQuoteVolume === 0n)
         return 0n
     return preciseVolume / preciseQuoteVolume
@@ -106,10 +114,10 @@ function convertToStellarAsset(asset) {
  *
  * @param {BigInt} value - value to normalize
  * @param {number} digits - number of digits in the value
- * @param {number} [targetDigits] - target number of digits for normalization (default is DEFAULT_DECIMALS)
+ * @param {number} [targetDigits] - target number of digits for normalization (default is TARGET_DECIMALS = 14)
  * @returns {BigInt} - normalized value
  */
-function adjustPrecision(value, digits, targetDigits = DEFAULT_DECIMALS) {
+function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
     if (typeof value !== 'bigint') {
         throw new Error('Value should be expressed as BigInt')
     }
@@ -129,41 +137,13 @@ function adjustPrecision(value, digits, targetDigits = DEFAULT_DECIMALS) {
     }
 }
 
-
-/**
- * Returns native storage
- * @param {xdr.ContractDataEntry} contractEntry - contract data entry
- * @param {string[]} [keys] - keys to extract from storage (optional)
- * @returns {object}
- */
-function getAquaPoolContractValues(contractEntry, keys = []) {
-    if (!contractEntry) {
-        throw new Error('Contract entry is required')
-    }
-    if (!Array.isArray(keys)) {
-        throw new Error('Keys should be an array of strings')
-    }
-    const data = contractEntry.val.contractData().val().instance()
-    if (!data)
-        return {}
-    const storage = {}
-    const entries = data.storage()
-    for (const entry of entries) {
-        const key = scValToNative(entry.key())
-        if (keys.length > 0 && !keys.includes(key[0])) //key[0] because keys are stored as arrays in Aqua contracts
-            continue
-        const val = scValToNative(entry.val())
-        storage[key] = val
-    }
-    return storage
-}
-
 module.exports = {
     getVWAP,
     normalizeTimestamp,
     encodeAssetContractId,
     convertToStellarAsset,
     adjustPrecision,
-    getAquaPoolContractValues,
-    DEFAULT_DECIMALS
+    scaleValue,
+    DEFAULT_DECIMALS,
+    TARGET_DECIMALS
 }

@@ -1,37 +1,7 @@
 /*eslint-disable class-methods-use-this */
-const {DEFAULT_DECIMALS, adjustPrecision, getAquaPoolContractValues} = require('../utils')
+const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
-
-
-/**
- * Processes aquarius pool contracts
- * @param {ContractDataEntry} contractData - contracts data entries
- * @param {string} baseTokenId - base token contract id
- * @param {Map<string, string>} quoteTokenIds - quote token contract ids
- * @return {{reserves: BigInt[], token: string}} - reserves array. First element is base asset reserve, second is quote asset reserve.
- */
-function extractAquaPoolData(contractData, baseTokenId, quoteTokenIds) {
-    const storage = getAquaPoolContractValues(contractData, ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB'])
-    const digits = storage.Decimals !== undefined ? storage.Decimals : [DEFAULT_DECIMALS, DEFAULT_DECIMALS]
-    const reserves = storage.ReserveA !== undefined
-        ? [storage.ReserveA, storage.ReserveB]
-        : [storage.Reserves[0], storage.Reserves[1]]
-    const tokens = storage.Tokens || [storage.TokenA, storage.TokenB]
-    if (
-        !tokens //no tokens found
-        || new Set(tokens).size !== 2 //not exactly 2 unique tokens
-        || !tokens.includes(baseTokenId) //base token not found in pool
-        || !quoteTokenIds.has(tokens.find(t => t !== baseTokenId)) //quote token not found
-    ) {
-        return [0n, 0n] //unable to extract reserves
-    }
-    if (tokens[1] === baseTokenId) //check if base token is second in the list
-        reserves.reverse() //ensure base token is always first
-    reserves[0] = adjustPrecision(reserves[0], digits[0])
-    reserves[1] = adjustPrecision(reserves[1], digits[1])
-    return {reserves, token: tokens.find(t => t !== baseTokenId)}
-}
 
 class AquaPoolProvider extends PoolProviderBase {
 
@@ -91,11 +61,19 @@ class AquaPoolProvider extends PoolProviderBase {
         const assetTokenIds = new Map(assets.map(asset => [PoolProviderBase.__getContractIdFromAsset(asset, network), asset.toString()]))
         const result = []
         for (const instance of poolInstances) {
-            const {reserves, token} = extractAquaPoolData(
+            const {reserves, token, stableData} = extractAquaPoolData(
                 instance,
                 baseTokenId,
                 assetTokenIds
             )
+            if (!reserves || reserves[0] === 0n || reserves[1] === 0n) {
+                console.trace(`Skipping pool with zero reserves: ${instance.address}`)
+                continue
+            }
+            if (stableData) {
+                const price = calculatePrice(reserves, stableData)
+                reserves[0] = reserves[0] * price
+            }
             result.push({
                 asset: assetTokenIds.get(token),
                 reserves

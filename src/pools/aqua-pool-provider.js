@@ -1,4 +1,5 @@
 /*eslint-disable class-methods-use-this */
+const {adjustPrecision} = require('../utils')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
@@ -71,8 +72,8 @@ class AquaPoolProvider extends PoolProviderBase {
                 continue
             }
             if (stableData) {
-                const price = calculatePrice(reserves, stableData)
-                reserves[0] = reserves[0] * price
+                reserves[0] = calculatePrice(reserves, stableData)
+                reserves[1] = adjustPrecision(1n, 0)
             }
             result.push({
                 asset: assetTokenIds.get(token),

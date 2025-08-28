@@ -1,4 +1,5 @@
 /*eslint-disable class-methods-use-this */
+const {Address} = require('@stellar/stellar-sdk')
 const {adjustPrecision} = require('../utils')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
@@ -62,25 +63,30 @@ class AquaPoolProvider extends PoolProviderBase {
         const assetTokenIds = new Map(assets.map(asset => [PoolProviderBase.__getContractIdFromAsset(asset, network), asset.toString()]))
         const result = []
         for (const instance of poolInstances) {
-            const {reserves, token, stableData} = extractAquaPoolData(
-                instance,
-                baseTokenId,
-                assetTokenIds
-            )
-            if (!reserves || reserves[0] === 0n || reserves[1] === 0n) {
-                console.trace(`Skipping pool with zero reserves: ${instance.address}`)
-                continue
+            const contractId = Address.contract(instance.key.contractData().contract().contractId()).toString()
+            try {
+                const {reserves, token, stableData} = extractAquaPoolData(
+                    instance,
+                    baseTokenId,
+                    assetTokenIds
+                )
+                if (!reserves || reserves[0] === 0n || reserves[1] === 0n) {
+                    console.trace(`Skipping pool with zero reserves: ${contractId}`)
+                    continue
+                }
+                if (stableData) {
+                    console.trace(`Stable pool ${contractId} raw reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
+                    reserves[0] = calculatePrice(reserves, stableData)
+                    reserves[1] = adjustPrecision(1n, 0)
+                }
+                console.trace(`Pool ${contractId} reserves: [${reserves[0].toString()}, ${reserves[1].toString()}]`)
+                result.push({
+                    asset: assetTokenIds.get(token),
+                    reserves
+                })
+            } catch (err) {
+                console.error({msg: `Error processing pool ${contractId}`, err})
             }
-            console.trace(`Processing pool ${instance.address} with raw reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
-            if (stableData) {
-                reserves[0] = calculatePrice(reserves, stableData)
-                reserves[1] = adjustPrecision(1n, 0)
-            }
-            console.trace(`Computed pool ${instance.address} reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
-            result.push({
-                asset: assetTokenIds.get(token),
-                reserves
-            })
         }
         return result
     }

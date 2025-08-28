@@ -71,10 +71,12 @@ class AquaPoolProvider extends PoolProviderBase {
                 console.trace(`Skipping pool with zero reserves: ${instance.address}`)
                 continue
             }
+            console.trace(`Processing pool ${instance.address} with raw reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
             if (stableData) {
                 reserves[0] = calculatePrice(reserves, stableData)
                 reserves[1] = adjustPrecision(1n, 0)
             }
+            console.trace(`Computed pool ${instance.address} reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
             result.push({
                 asset: assetTokenIds.get(token),
                 reserves

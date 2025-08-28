@@ -71,15 +71,15 @@ class AquaPoolProvider extends PoolProviderBase {
                     assetTokenIds
                 )
                 if (!reserves || reserves[0] === 0n || reserves[1] === 0n) {
-                    console.trace(`Skipping pool with zero reserves: ${contractId}`)
+                    console.debug(`Skipping pool with zero reserves: ${contractId}`)
                     continue
                 }
                 if (stableData) {
-                    console.trace(`Stable pool ${contractId} raw reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
+                    console.debug(`Stable pool ${contractId} raw reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
                     reserves[0] = calculatePrice(reserves, stableData)
                     reserves[1] = adjustPrecision(1n, 0)
                 }
-                console.trace(`Pool ${contractId} reserves: [${reserves[0].toString()}, ${reserves[1].toString()}]`)
+                console.debug(`Pool ${contractId} reserves: [${reserves[0].toString()}, ${reserves[1].toString()}]`)
                 result.push({
                     asset: assetTokenIds.get(token),
                     reserves

@@ -34,8 +34,8 @@ function xdrParseResult(result, txHash) {
             opResults = innerResult.results()
         }
         return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
-    } catch (e) {
-        console.error(new Error([e], 'Error processing tx ' + txHash))
+    } catch (err) {
+        console.error({err, msg: 'Error processing tx', txHash})
         return null
     }
 }

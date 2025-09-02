@@ -61,7 +61,7 @@ class PoolProviderBase {
                 || pool.assets.length !== 2 //check for 2 assets
                 || new Set(pool.assets).size !== 2 //check for duplicates
                 ) {
-                    console.warn(`Skipping pool with invalid data: ${JSON.stringify(pool)}`)
+                    console.warn({msg: 'Skipping pool with invalid data', poolId: pool.address, type: pool.type, assets: pool.assets})
                     return null
                 }
                 const poolQuoteAsset = pool.assets.find(a => a !== baseAssetStr)
@@ -77,7 +77,7 @@ class PoolProviderBase {
                 if (!quoteAsset)
                     continue
                 targetPools.push(pool.address)
-                console.debug(`Found pool ${baseAssetStr}-${quoteAsset}-${pool.address}-${pool.type}`)
+                console.debug({msg: 'Found pool', baseAsset: baseAssetStr, quoteAsset, poolId: pool.address, type: pool.type})
             }
             return targetPools
         } catch (err) {

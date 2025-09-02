@@ -71,21 +71,21 @@ class AquaPoolProvider extends PoolProviderBase {
                     assetTokenIds
                 )
                 if (!reserves || reserves[0] === 0n || reserves[1] === 0n) {
-                    console.debug(`Skipping pool with zero reserves: ${contractId}`)
+                    console.debug({msg: 'Skipping pool with zero reserves', poolId: contractId})
                     continue
                 }
                 if (stableData) {
-                    console.debug(`Stable pool ${contractId} raw reserves: ${reserves[0].toString()} / ${reserves[1].toString()}`)
+                    console.debug({msg: 'Stable pool raw reserves', poolId: contractId, reserves: [reserves[0].toString(), reserves[1].toString()]})
                     reserves[0] = calculatePrice(reserves, stableData)
                     reserves[1] = adjustPrecision(1n, 0)
                 }
-                console.debug(`Pool ${contractId} reserves: [${reserves[0].toString()}, ${reserves[1].toString()}]`)
+                console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [reserves[0].toString(), reserves[1].toString()]})
                 result.push({
                     asset: assetTokenIds.get(token),
                     reserves
                 })
             } catch (err) {
-                console.error({msg: `Error processing pool ${contractId}`, err})
+                console.error({msg: 'Error processing pool', poolId: contractId, err})
             }
         }
         return result

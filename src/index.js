@@ -33,6 +33,24 @@ async function aggregateTrades({rpcUrl, network, baseAsset, assets, from, period
     //wait for both promises to resolve
     const [tradesData, poolsData] = await Promise.all([tradesDataPromise, poolsDataPromise])
 
+    const aggregatorDataToLog = (aggrData) => {
+        const logData = []
+        for (const tsData of aggrData) {
+            for (const assetData of tsData) {
+                logData.push({
+                    asset: assetData.asset,
+                    volume: assetData.volume.toString(),
+                    quoteVolume: assetData.quoteVolume.toString(),
+                    ts: assetData.ts
+                })
+            }
+        }
+        return logData
+    }
+
+    console.debug({msg: 'Aggregated trades data', data: aggregatorDataToLog(tradesData)})
+    console.debug({msg: 'Aggregated pools data', data: aggregatorDataToLog(poolsData)})
+
     const data = Array.from({length: tradesData.length})
         .map(() => Array.from({length: assets.length})
             .map(() => ({price: 0n, ts: 0, type: 'price'}))) //empty results array

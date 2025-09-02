@@ -74,7 +74,7 @@ async function loadSingleProviderData(rpc, network, provider, baseAsset, assets)
         const reservesData = provider.processPoolsData(poolInstances, baseAsset, assets, network)
         return reservesData
     } catch (err) {
-        console.error('Error processing pool data:', err)
+        console.error({msg: 'Error processing pool data', err})
         return []
     }
 }

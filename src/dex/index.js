@@ -3,6 +3,7 @@ const DexTradesAggregator = require('./dex-trades-aggregator')
 /**
  * @typedef {import('../rpc-connector')} RpcConnector
  * @typedef {import('@stellar/stellar-sdk').Asset} Asset
+ * @typedef {import('../asset-volumes-accumulator')} AssetVolumesAccumulator
  */
 
 /**

@@ -1,6 +1,6 @@
 {
   "name": "@reflector/stellar-connector",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "description": "Stellar asset price feed connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",
@@ -14,7 +14,7 @@
     "test": "jest"
   },
   "peerDependencies": {
-    "@stellar/stellar-sdk": ">=13"
+    "@stellar/stellar-sdk": "14.1.1"
   },
   "devDependencies": {
     "jest": "^29.6.4"

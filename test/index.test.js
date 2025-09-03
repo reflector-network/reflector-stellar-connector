@@ -4,6 +4,8 @@ const RpcConnector = require('../src/rpc-connector')
 const {getDexData} = require('../src/dex')
 const {getPoolsData} = require('../src/pools')
 const {adjustPrecision, getVWAP} = require('../src/utils')
+const DexTradesAggregator = require('../src/dex/dex-trades-aggregator')
+const PoolsDataAggregator = require('../src/pools/pools-data-aggregator')
 
 jest.mock('../src/rpc-connector')
 jest.mock('../src/dex')
@@ -29,14 +31,17 @@ describe('aggregateTrades', () => {
         RpcConnector.mockImplementation(() => mockRpcInstance)
 
         const dexData = [
-            [{volume: adjustPrecision(100n, 14), quoteVolume: adjustPrecision(200n, 14), ts: 1620000000}],
-            [{volume: adjustPrecision(150n, 14), quoteVolume: adjustPrecision(300n, 14), ts: 1620003600}]
+            [new DexTradesAggregator('BASE', ['TEST1'], 1620000000)],
+            [new DexTradesAggregator('BASE', ['TEST1'], 1620003600)]
         ]
+        dexData[0][0].addVolumes('TEST1', adjustPrecision(100n, 14), adjustPrecision(200n, 14))
+        dexData[1][0].addVolumes('TEST1', adjustPrecision(150n, 14), adjustPrecision(300n, 14))
 
         const poolsData = [
             null,
-            [{volume: adjustPrecision(78n, 14), quoteVolume: adjustPrecision(154n, 14)}]
+            [new PoolsDataAggregator('BASE', ['TEST1'], 1620003600)]
         ]
+        poolsData[1][0].addVolumes('TEST1', adjustPrecision(78n, 14), adjustPrecision(154n, 14))
 
         getDexData.mockResolvedValue(Promise.resolve(dexData))
         getPoolsData.mockResolvedValue(Promise.resolve(poolsData))

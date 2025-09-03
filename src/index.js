@@ -69,6 +69,7 @@ async function aggregateTrades({rpcUrl, network, baseAsset, assets, from, period
             }
         }
     }
+    console.debug({msg: 'Aggregated prices', data: data.map(dItem => dItem.map(p => ({...p, price: p.price.toString()})))})
     return data
 }
 

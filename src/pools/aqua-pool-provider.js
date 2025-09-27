@@ -1,5 +1,4 @@
 /*eslint-disable class-methods-use-this */
-const {Address} = require('@stellar/stellar-sdk')
 const {adjustPrecision} = require('../utils')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
@@ -34,7 +33,6 @@ class AquaPoolProvider extends PoolProviderBase {
 
                 return ({
                     address: pool.address,
-                    assets: pool.tokens_str,
                     type
                 })
             }).filter(value => !!value)
@@ -52,43 +50,31 @@ class AquaPoolProvider extends PoolProviderBase {
     }
 
     /**
-     * @param {ContractDataEntry[]} poolInstances - pool data instances
-     * @param {Asset} baseAsset - base asset
-     * @param {Asset[]} assets - list of assets to aggregate pools data for
-     * @param {string} network - network passphrase
-     * @return {{reserves: BigInt[], asset: string}[]}
+     * @param {string} poolInstance - pool data instance in XDR format
+     * @param {string} contractId - pool contract id
+     * @return {{reserves: BigInt[], tokens: string[]}|null} - pool reserves and tokens or null if the pool is invalid
      */
-    processPoolsData(poolInstances, baseAsset, assets, network) {
-        const baseTokenId = PoolProviderBase.__getContractIdFromAsset(baseAsset, network)
-        const assetTokenIds = new Map(assets.map(asset => [PoolProviderBase.__getContractIdFromAsset(asset, network), asset.toString()]))
-        const result = []
-        for (const instance of poolInstances) {
-            const contractId = Address.contract(instance.key.contractData().contract().contractId()).toString()
-            try {
-                const {reserves, token, stableData} = extractAquaPoolData(
-                    instance,
-                    baseTokenId,
-                    assetTokenIds
-                )
-                if (!reserves || reserves[0] === 0n || reserves[1] === 0n) {
-                    console.debug({msg: 'Skipping pool with zero reserves', poolId: contractId})
-                    continue
-                }
-                if (stableData) {
-                    console.debug({msg: 'Stable pool raw reserves', poolId: contractId, reserves: [reserves[0].toString(), reserves[1].toString()]})
-                    reserves[0] = calculatePrice(reserves, stableData)
-                    reserves[1] = adjustPrecision(1n, 0)
-                }
-                console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [reserves[0].toString(), reserves[1].toString()]})
-                result.push({
-                    asset: assetTokenIds.get(token),
-                    reserves
-                })
-            } catch (err) {
-                console.error({msg: 'Error processing pool', poolId: contractId, err})
+    processPoolInstance(poolInstance, contractId) {
+        try {
+            //extract pool data
+            const poolData = extractAquaPoolData(poolInstance)
+
+            //skip if pool is invalid
+            if (!poolData) {
+                console.debug({msg: 'Skipping invalid pool', poolId: contractId})
+                return null
             }
+            if (poolData.stableData) {
+                console.debug({msg: 'Stable pool raw reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()]})
+                poolData.reserves[0] = calculatePrice(poolData.reserves, poolData.stableData)
+                poolData.reserves[1] = adjustPrecision(1n, 0)
+            }
+            console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()]})
+            return poolData
+        } catch (err) {
+            console.error({msg: 'Error processing pool', poolId: contractId, err})
         }
-        return result
+        return null
     }
 }
 

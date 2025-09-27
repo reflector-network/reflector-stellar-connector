@@ -3,17 +3,20 @@ const PoolsDataAggregator = require('./pools-data-aggregator')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').Asset} Asset
- * @typedef {import('../rpc-connector')} RpcConnector
+ * @typedef {import('../cache')} TxCache
  * @typedef {import('../asset-volumes-accumulator')} AssetVolumesAccumulator
  * @typedef {import('./pool-provider-base')} PoolProviderBase
  */
 
 const aquaPoolProvider = new AquaPoolProvider()
 
+const poolProviders = [
+    aquaPoolProvider
+]
+
 /**
- * Aggregate pools data
- * @param {RpcConnector} rpc - rpc connector instance
- * @param {string} network - network passphrase
+ * Aggregate pools data for the specified base asset and assets
+ * @param {TxCache} cache - Cache instance to store transactions
  * @param {Asset} baseAsset - base asset
  * @param {Asset[]} assets - tracked assets
  * @param {number} from - start timestamp for aggregation
@@ -21,38 +24,40 @@ const aquaPoolProvider = new AquaPoolProvider()
  * @param {number} limit - Number of periods to aggregate
  * @return {Promise<[AssetVolumesAccumulator[]]>} - Aggregated pools data for each period, but only the last period is filled with data
  */
-async function getPoolsData(rpc, network, baseAsset, assets, from, period, limit) {
+function getPoolsData(cache, baseAsset, assets, from, period, limit) {
     try {
-        const ts = from + period * (limit - 1)
-        //load pool reserves data
-        const totalReserves = await loadPoolReserves(rpc, network, baseAsset, assets)
-        if (!totalReserves || totalReserves.length === 0) {
-            console.warn('No pool reserves data found')
-            return []
+        //prepare results
+        const results = []
+        for (let i = 0; i < limit; i++) {
+            const periodFrom = from + period * i
+            const poolsDataAggregator = new PoolsDataAggregator(baseAsset, assets, periodFrom)
+            //retrieve pools data for current period
+            const poolsForPeriod = cache.getPoolsDataForPeriod(periodFrom, periodFrom + period)
+            //accumulate pools data
+            poolsDataAggregator.processTokenReserves(poolsForPeriod)
+            //aggregate volumes
+            const volumes = poolsDataAggregator.volumes
+            //add to results
+            results.push(volumes)
         }
-        //process pool reserves data
-        const poolsAggregator = new PoolsDataAggregator(baseAsset, assets, ts)
-        poolsAggregator.processTokenReserves(totalReserves)
-        const result = Array.from({length: limit}).fill([])
-        result[limit - 1] = poolsAggregator.volumes
-        return result
+        return results
     } catch (err) {
-        console.error({msg: 'Error fetching pools data', err})
+        console.error({msg: 'Error fetching dex data', err})
         return []
     }
 }
 
 /**
  * Load pools reserves data for the specified base asset and assets
- * @param {RpcConnector} rpc - rpc connector instance
- * @param {string} network - network passphrase
  * @param {Asset} baseAsset - base asset to aggregate pools data against
  * @param {Asset[]} assets - list of assets to aggregate pools data for
+ * @return {Promise<Map<string, PoolProviderBase>>} - list of pool contracts with their providers
  */
-async function loadPoolReserves(rpc, network, baseAsset, assets) {
-    const loadPoolsPromises = [
-        loadSingleProviderData(rpc, network, aquaPoolProvider, baseAsset, assets)
-    ]
+async function getPoolContracts(baseAsset, assets) {
+    const loadPoolsPromises = []
+    for (const provider of poolProviders) {
+        loadPoolsPromises.push(loadSingleProviderData(provider, baseAsset, assets))
+    }
     const allPools = await Promise.all(loadPoolsPromises)
     return allPools.flat()
 }
@@ -60,25 +65,26 @@ async function loadPoolReserves(rpc, network, baseAsset, assets) {
 
 /**
  * Load reserves data for a single pool provider
- * @param {RpcConnector} rpc - rpc connector instance
- * @param {string} network - network passphrase
  * @param {PoolProviderBase} provider - pool provider instance
  * @param {Asset} baseAsset - base asset to aggregate pools data against
  * @param {Asset[]} assets - list of assets to aggregate pools data for
- * @return {Promise<{reserves: BigInt[], asset: string}[]>}
+ * @return {Promise<Map<string, PoolProviderBase>>} - list of pool contracts with their providers
  */
-async function loadSingleProviderData(rpc, network, provider, baseAsset, assets) {
+async function loadSingleProviderData(provider, baseAsset, assets) {
     try {
         const poolAddresses = await provider.getTargetPools(baseAsset, assets)
-        const poolInstances = await rpc.loadContractsData(poolAddresses)
-        const reservesData = provider.processPoolsData(poolInstances, baseAsset, assets, network)
-        return reservesData
+        const result = new Map()
+        for (const address of poolAddresses) {
+            result.set(address, provider)
+        }
+        return result
     } catch (err) {
         console.error({msg: 'Error processing pool data', err})
-        return []
+        return new Map()
     }
 }
 
 module.exports = {
+    getPoolContracts,
     getPoolsData
 }

@@ -1,4 +1,4 @@
-const {Asset} = require('@stellar/stellar-sdk')
+const {Asset, xdr} = require('@stellar/stellar-sdk')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').xdr.TransactionResult} TransactionResult
@@ -15,12 +15,11 @@ const {Asset} = require('@stellar/stellar-sdk')
 
 /**
  * Parse raw XDR result
- * @param {TransactionResult} result - XDR result of the transaction
- * @param {string} txHash - transaction hash
+ * @param {any} tx - XDR result of the transaction
  * @return {Trade[]|null}
  */
-function xdrParseResult(result, txHash) {
-    const innerResult = result.result()
+function xdrParseResult(tx) {
+    const innerResult = xdr.TransactionResult.fromXDR(tx.resultXdr, 'base64').result()
     const txResultState = innerResult.switch()
     if (txResultState.value < 0)
         return null //tx failed
@@ -35,7 +34,7 @@ function xdrParseResult(result, txHash) {
         }
         return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
     } catch (err) {
-        console.error({err, msg: 'Error processing tx', txHash})
+        console.error({err, msg: 'Error processing tx', tx: tx.hash})
         return null
     }
 }

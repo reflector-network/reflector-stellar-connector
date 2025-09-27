@@ -137,7 +137,52 @@ function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
     }
 }
 
+/**
+ * Invokes Stellar RPC method directly
+ * @param {string[]} rpcs - RPC URLs
+ * @param {string} method - RPC method name
+ * @param {{}} params - Parameters to pass to RPC
+ * @param {{[timeout], [signal]}} [options]
+ * @return {Promise<any>}
+ */
+function invokeRpcMethod(rpcs, method, params = undefined, options = undefined) {
+    for (const rpcUrl of rpcs) {
+        for (let i = 0; i < 3; i++) { //max 3 attempts
+            try {
+                let {timeout = 15_000, signal} = options || {}
+                if (!signal) {
+                    const abortController = new AbortController()
+                    setTimeout(() => abortController.abort(), timeout)
+                    signal = abortController.signal
+                }
+                const data = {
+                    jsonrpc: '2.0',
+                    id: 8675309,
+                    method,
+                    params
+                }
+                return fetch(rpcUrl, {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {'Content-Type': 'application/json'},
+                    signal
+                })
+                    .then(res => res.json())
+                    .then(res => {
+                        if (res.error)
+                            throw new Error('RPC error: ' + res.error.message + '\n' + res.error.data)
+                        return res.result
+                    })
+            } catch (e) {
+                console.warn({err: e, msg: 'Failed RPC request', args: params, rpcUrl})
+            }
+        }
+    }
+    throw new Error('Failed to invoke RPC method on all provided URLs')
+}
+
 module.exports = {
+    invokeRpcMethod,
     getVWAP,
     normalizeTimestamp,
     encodeAssetContractId,

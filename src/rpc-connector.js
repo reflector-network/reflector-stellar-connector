@@ -1,4 +1,5 @@
-const {rpc, xdr, Address} = require('@stellar/stellar-sdk')
+const {xdr, Address} = require('@stellar/stellar-sdk')
+const {invokeRpcMethod} = require('./utils')
 
 /**
  * Derive contract instance ledger key from contract address
@@ -18,34 +19,27 @@ function generateInstanceLedgerKey(contractId) {
 
 class RpcConnector {
     /**
-     * Create Core DB connector instance
-     * @param {string} rpcUrl - URL of the RPC server with enabled `getTransactions` and `getLedgerEntries` endpoints
-     * @param {TradesCache} cache - Cache instance to store transactions
+     * Create RPC connector instance
+     * @param {string[]} rpcUrls - URLs of the RPC servers with enabled `getTransactions` and `getLedgerEntries` endpoints
      */
-    constructor(rpcUrl, cache) {
-        this.rpcUrl = rpcUrl
-        this.cache = cache
-        this.server = new rpc.Server(rpcUrl, {allowHttp: true})
+    constructor(rpcUrls) {
+        this.rpcUrls = rpcUrls
     }
 
     /**
-     * @type {string}
+     * @type {string[]}
      * @readonly
      */
-    rpcUrl
-    /**
-     * @type {rpc.Server}
-     * @private
-     */
-    server
+    rpcUrls
 
     /**
      * @param {number} from - Range lower bound ledger (inclusive)
      * @param {number} to - Range upper bound ledger (inclusive)
+     * @param {function} onSuccessTxCb - Callback to process each successful transaction
      */
-    async fetchTransactions(from, to) {
+    async fetchTransactions(from, to, onSuccessTxCb) {
         const processTransactions = async (params) => {
-            const res = await this.getTransactions(params)
+            const res = await invokeRpcMethod(this.rpcUrls, 'getTransactions', params)
             const transactions = res.transactions || []
             if (transactions.length === 0)
                 return //no transactions to process - stop processing
@@ -54,7 +48,7 @@ class RpcConnector {
                     return
                 }
                 if (tx.status === 'SUCCESS') { //ignore failed transactions
-                    this.cache.addTx(tx)
+                    onSuccessTxCb(tx)
                 }
             }
             return res.cursor //continue processing transactions
@@ -72,40 +66,21 @@ class RpcConnector {
     }
 
     /**
-     * @param {{}} params - Parameters for the getTransactions request
-     * @return {Promise<*>}
-     * @private
-     */
-    async getTransactions(params) {
-        for (let i = 0; i < 3; i++) { //max 3 attempts
-            try {
-                return await this.server.getTransactions(params)
-            } catch (e) {
-                console.warn({err: e, msg: 'Failed getTransactions request', args: params})
-            }
-        }
-        throw new Error('Failed to load transactions from RPC')
-    }
-
-    /**
+     * @param {number} lastCachedLedger - Last cached ledger sequence
      * @param {number} period - Period in seconds
      * @param {number} total - Number of periods to fetch
      * @param {number} rangeLimit - Number of ranges to return
      * @return {Promise<{from: number, to: number}[]>}
      */
-    async generateLedgerRanges(period, total, rangeLimit) {
-        const expectedSecondsPerLedger = await this.getSecondsPerLedger()
-        //retrieve latest available ledger sequence
-        const {sequence} = await this.server.getLatestLedger()
-        //retrieve last known processed ledger sequence
-        const {lastCachedLedger} = this.cache
+    async generateLedgerRanges(lastCachedLedger, period, total, rangeLimit) {
+        const {secondsPerLedger, latestLedger} = await this.getLedgerInfo()
         //guess first ledger to load
-        let firstLedgerToLoad = sequence - Math.ceil(period / expectedSecondsPerLedger) * total
+        let firstLedgerToLoad = latestLedger - Math.ceil(period / secondsPerLedger) * total
         if (lastCachedLedger > firstLedgerToLoad) {
             firstLedgerToLoad = lastCachedLedger + 1
         }
         //determine range size
-        const rangeSize = Math.ceil((sequence - firstLedgerToLoad) / rangeLimit)
+        const rangeSize = Math.ceil((latestLedger - firstLedgerToLoad) / rangeLimit)
         //init result array
         const ranges = new Array(rangeLimit)
         //generate ranges
@@ -116,78 +91,66 @@ class RpcConnector {
         }
         //set upper boundary for the last range to overcome possible rounding issues
         //if response from the server is null, the loading process will crash. To avoid this, we subtract 1 from the last range
-        ranges[rangeLimit - 1].to = sequence - 1
+        ranges[rangeLimit - 1].to = latestLedger - 1
         return ranges
     }
 
-    async getSecondsPerLedger() {
+    async getLedgerInfo() {
         //retrieve latest available ledger sequence
-        const {sequence} = await this.server.getLatestLedger()
-        //TODO: use sdk method when it will be available
-        //retrieve info about ledgers
-        const options = {
-            jsonrpc: '2.0',
-            id: Date.now(),
-            method: "getLedgers",
-            params:
-            {
-                startLedger: sequence,
-                pagination: {limit: 1}
-            }
-        }
-        const response = await fetch(this.server.serverURL.toString(), {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(options)
-        }).then(res => res.json())
-
-        if (!response?.result)
-            throw new Error('Failed to load ledgers from RPC')
-
-        const {latestLedgerCloseTime, latestLedger, oldestLedgerCloseTime, oldestLedger} = response.result
+        const {latestLedgerCloseTime, latestLedger, oldestLedgerCloseTime, oldestLedger} = await this.getTransaction('0'.repeat(64))
 
         //compute seconds per ledger
         const secondsPerLedger = (latestLedgerCloseTime - oldestLedgerCloseTime) / (latestLedger - oldestLedger)
-        return secondsPerLedger
+        return {secondsPerLedger, latestLedger}
     }
 
     /**
      * Load ledger entries from RPC
      * @param {string[]} contracts - Array of contract IDs to load
-     * @return {Promise<ContractDataEntry[]>}
+     * @return {Promise<Map<string, {key: string, xdr: string, lastModifiedLedger: number, liveUntilLedgerSeq: number}>>} Map of contract IDs to their ledger entries
      */
-    async loadContractsData(contracts) {
+    async loadContractInstances(contracts) {
         //create contract props mapping
         const generateKeys = () => {
             const maxEntries = 200 //max entries per request
 
-            let currentChunk = [] //current chunk of keys
+            let currentChunk = new Map() //current chunk of keys
             const chunks = [currentChunk]
             for (const contract of contracts) {
-                if (currentChunk.length >= maxEntries) { //max entries per request
-                    currentChunk = []
+                if (currentChunk.size >= maxEntries) { //max entries per request
+                    currentChunk = new Map()
                     chunks.push(currentChunk)
                 }
-                currentChunk.push(generateInstanceLedgerKey(contract))
+                currentChunk.set(generateInstanceLedgerKey(contract).toXDR('base64'), contract)
             }
             return chunks
         }
         const keyChunks = generateKeys()
         for (let i = 0; i < 3; i++) { //max 3 attempts
             try {
-                const data = []
+                const instances = new Map()
                 for (const chunk of keyChunks) {
-                    const chunkData = await this.server.getLedgerEntries(...chunk)
+                    const chunkData = await invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: [...chunk.keys()]})
                     if (chunkData?.entries) {
-                        data.push(...chunkData.entries)
+                        chunkData.entries.forEach(entry => {
+                            //map entry to contract ID
+                            const contractId = chunk.get(entry.key)
+                            instances.set(contractId, entry)
+                        })
                     }
                 }
-                return data
+                return instances
             } catch (e) {
                 console.warn({err: e, msg: 'Failed getTransactions request'})
             }
         }
         throw new Error('Failed to load contracts data from RPC')
+    }
+
+    async getTransaction(hash) {
+        if (!hash)
+            throw new Error('Transaction hash is required')
+        return await invokeRpcMethod(this.rpcUrls, 'getTransaction', {hash})
     }
 }
 

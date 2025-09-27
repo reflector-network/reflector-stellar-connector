@@ -1,4 +1,5 @@
 const AssetVolumesAccumulator = require('./asset-volumes-accumulator')
+const {encodeAssetContractId} = require('./utils')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').Asset} Asset
@@ -8,9 +9,10 @@ class AggregatorBase {
     /**
      * @param {Asset} baseAsset - base asset to aggregate trades against
      * @param {Asset[]} assets - list of assets to aggregate trades for
+     * @param {string} network - network passphrase
      * @param {number} ts - timestamp for the aggregation
      */
-    constructor(baseAsset, assets, ts) {
+    constructor(baseAsset, assets, network, ts) {
         if (!baseAsset || !assets || !Array.isArray(assets))
             throw new Error('Invalid base asset or assets list')
         if (ts <= 0)
@@ -19,6 +21,8 @@ class AggregatorBase {
             throw new Error('Cannot instantiate abstract class AggregatorBase')
 
         this.baseAsset = baseAsset.toString()
+        this.baseToken = encodeAssetContractId(baseAsset, network)
+        this.tokens = new Map()
         //create asset->position mapping
         this.assets = new Map()
         this.assetsLength = assets.length
@@ -28,6 +32,7 @@ class AggregatorBase {
                 continue
             const assetStr = asset.toString()
             this.assets.set(assetStr, new AssetVolumesAccumulator(assetStr, i, ts))
+            this.tokens.set(encodeAssetContractId(asset, network), assetStr)
         }
     }
 
@@ -35,7 +40,20 @@ class AggregatorBase {
      * @type {string}
      * @readonly
      */
+    baseToken
+
+    /**
+     * @type {string}
+     * @readonly
+     */
     baseAsset
+
+    /**
+     * Map of token contract IDs to asset strings
+     * @type {Map<string, string>}
+     * @readonly
+     */
+    tokens
 
     /**
      * @type {Map<string, AssetVolumesAccumulator>}

@@ -1,9 +1,9 @@
-const {scValToNative} = require('@stellar/stellar-sdk')
+const {scValToNative, xdr} = require('@stellar/stellar-sdk')
 const {DEFAULT_DECIMALS, adjustPrecision} = require('../utils')
 
 /**
  * Returns native storage
- * @param {xdr.ContractDataEntry} contractEntry - contract data entry
+ * @param {xdr.LedgerEntryData} contractEntry - contract data entry
  * @param {string[]} [keys] - keys to extract from storage (optional)
  * @returns {object}
  */
@@ -14,7 +14,7 @@ function getAquaPoolContractValues(contractEntry, keys = []) {
     if (!Array.isArray(keys)) {
         throw new Error('Keys should be an array of strings')
     }
-    const data = contractEntry.val.contractData().val().instance()
+    const data = contractEntry.value().val().instance()
     if (!data)
         return {}
     const storage = {}
@@ -191,12 +191,11 @@ function calculatePrice(reserves, stableData) {
 /**
  * Processes aquarius pool contracts
  * @param {ContractDataEntry} contractData - contracts data entries
- * @param {string} baseTokenId - base token contract id
  * @param {Map<string, string>} quoteTokenIds - quote token contract ids
- * @return {{reserves: BigInt[], token: string}} - reserves array. First element is base asset reserve, second is quote asset reserve.
+ * @return {{reserves: BigInt[], tokens: string[], stableData: {initialA: number, initialATime: number, futureA: number, futureATime: number, fee: bigint}}} - reserves array. First element is base asset reserve, second is quote asset reserve.
  */
-function extractAquaPoolData(contractData, baseTokenId, quoteTokenIds) {
-    const storage = getAquaPoolContractValues(contractData, ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
+function extractAquaPoolData(contractData) {
+    const storage = getAquaPoolContractValues(xdr.LedgerEntryData.fromXDR(contractData, 'base64'), ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
     const digits = storage.Decimals !== undefined ? storage.Decimals : [DEFAULT_DECIMALS, DEFAULT_DECIMALS]
     const reserves = storage.ReserveA !== undefined
         ? [storage.ReserveA, storage.ReserveB]
@@ -205,15 +204,11 @@ function extractAquaPoolData(contractData, baseTokenId, quoteTokenIds) {
     if (
         !tokens //no tokens found
         || new Set(tokens).size !== 2 //not exactly 2 unique tokens
-        || !tokens.includes(baseTokenId) //base token not found in pool
-        || !quoteTokenIds.has(tokens.find(t => t !== baseTokenId)) //quote token not found
     ) {
-        return {} //unable to extract reserves
+        return null //unable to extract reserves
     }
     reserves[0] = adjustPrecision(reserves[0], digits[0])
     reserves[1] = adjustPrecision(reserves[1], digits[1])
-    if (tokens[1] === baseTokenId) //check if base token is second in the list
-        reserves.reverse() //ensure base token is always first
     let stableData = undefined
     if (storage.InitialA) {
         stableData = {
@@ -224,7 +219,7 @@ function extractAquaPoolData(contractData, baseTokenId, quoteTokenIds) {
             fee: BigInt(storage.Fee)
         }
     }
-    return {reserves, token: tokens.find(t => t !== baseTokenId), stableData}
+    return {reserves, tokens, stableData}
 }
 
 module.exports = {

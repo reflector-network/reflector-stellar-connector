@@ -53,10 +53,10 @@ describe('DexTradesAggregator', () => {
     ]
 
     test('Aggregate transactions', () => {
-        const aggregator = new DexTradesAggregator(baseAsset, trackedAssets, 1)
+        const aggregator = new DexTradesAggregator(baseAsset, trackedAssets, 'Public Global Stellar Network ; September 2015', 1)
 
         function processTx(tx) {
-            const trades = xdrParseResult(tx.resultXdr, tx.txHash)
+            const trades = xdrParseResult(tx)
             if (!trades?.length)
                 return
             aggregator.processPeriodTrades(trades)
@@ -86,7 +86,7 @@ describe('DexTradesAggregator', () => {
 
 function txFromXdr(resultXdr) {
     return {
-        resultXdr: xdr.TransactionResultPair.fromXDR(Buffer.from(resultXdr, 'base64')).result(),
+        resultXdr,//: xdr.TransactionResultPair.fromXDR(Buffer.from(resultXdr, 'base64')).result().toXDR('base64'),
         hash: ''
     }
 }

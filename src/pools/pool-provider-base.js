@@ -97,14 +97,13 @@ class PoolProviderBase {
 
 
     /**
-     * @param {ContractDataEntry[]} poolInstances - pool data instances
-     * @param {Asset} baseAsset - base asset
-     * @param {Asset[]} assets - list of assets to aggregate pools data for
+     * @param {string} poolInstance - pool data instances
+     * @param {string} contractId - pool contract id
      * @param {string} network - network passphrase
-     * @return {{reserves: BigInt[], asset: Asset}[]}
+     * @return {{reserves: BigInt[], tokens: string[]}|null} - pool reserves and tokens or null if the pool is invalid.
      */
-    processPoolsData(poolInstances, baseAsset, assets, network) {
-        throw new Error("Abstract method processPoolsData must be implemented in derived class")
+    processPoolInstance(poolInstance, contractId, network) {
+        throw new Error("Abstract method processPoolInstance must be implemented in derived class")
     }
 
     static __getContractIdFromAsset(asset, network) {

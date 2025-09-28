@@ -19,18 +19,19 @@ const poolProviders = [
  * @param {TxCache} cache - Cache instance to store transactions
  * @param {Asset} baseAsset - base asset
  * @param {Asset[]} assets - tracked assets
+ * @param {string} network - network passphrase
  * @param {number} from - start timestamp for aggregation
  * @param {number} period - period in seconds for aggregation
  * @param {number} limit - Number of periods to aggregate
  * @return {Promise<[AssetVolumesAccumulator[]]>} - Aggregated pools data for each period, but only the last period is filled with data
  */
-function getPoolsData(cache, baseAsset, assets, from, period, limit) {
+function getPoolsData(cache, baseAsset, assets, network, from, period, limit) {
     try {
         //prepare results
         const results = []
         for (let i = 0; i < limit; i++) {
             const periodFrom = from + period * i
-            const poolsDataAggregator = new PoolsDataAggregator(baseAsset, assets, periodFrom)
+            const poolsDataAggregator = new PoolsDataAggregator(baseAsset, assets, network, periodFrom)
             //retrieve pools data for current period
             const poolsForPeriod = cache.getPoolsDataForPeriod(periodFrom, periodFrom + period)
             //accumulate pools data

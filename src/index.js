@@ -21,9 +21,9 @@ function getPrice(tradesData, poolsData) {
     return getVWAP(volume, quoteVolume)
 }
 
-class TradesAggregator {
+class StellarProvider {
 
-    async init(rpcUrls, network) {
+    async init({rpcUrls, network}) {
         if (!rpcUrls || rpcUrls.length === 0) {
             throw new Error('Invalid RPC URLs')
         }
@@ -47,7 +47,7 @@ class TradesAggregator {
      * }} options - Options object
      * @return {[{price: BigInt, ts: number, type: string}][]}
      */
-    async aggregateTrades({baseAsset, assets, from, period, limit}) {
+    async getPriceData({baseAsset, assets, from, period, limit}) {
 
         //convert asset format
         const aggBaseAsset = convertToStellarAsset(baseAsset)
@@ -59,8 +59,8 @@ class TradesAggregator {
         //update cache with recent transactions and pools data
         await this.cache.updateCache(from, period, limit, poolContracts)
 
-        const tradesData = getDexData(this.cache, aggBaseAsset, aggAssets, from, period, limit)
-        const poolsData = getPoolsData(this.cache, aggBaseAsset, aggAssets, from, period, limit)
+        const tradesData = getDexData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, limit)
+        const poolsData = getPoolsData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, limit)
 
         const aggregatorDataToLog = (aggrData) => {
             const logData = []
@@ -107,4 +107,4 @@ class TradesAggregator {
     }
 }
 
-module.exports = TradesAggregator
+module.exports = StellarProvider

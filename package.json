@@ -1,6 +1,6 @@
 {
   "name": "@reflector/stellar-connector",
-  "version": "4.0.0-rc15",
+  "version": "4.0.0-rc16",
   "description": "Stellar asset price feed connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",
@@ -17,7 +17,7 @@
     "@stellar/stellar-sdk": ">=14"
   },
   "devDependencies": {
-    "jest": "^29.6.4",
-    "@stellar-expert/eslint-config-js": "github:stellar-expert/eslint-config-js"
+    "@stellar-expert/eslint-config-js": "github:stellar-expert/eslint-config-js",
+    "jest": "^29.6.4"
   }
 }

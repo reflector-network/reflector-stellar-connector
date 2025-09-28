@@ -1,5 +1,5 @@
 /*eslint-disable no-undef */
-const TradesAggregator = require('../src')
+const StellarProvider = require('../src')
 const TxCache = require('../src/cache')
 const RpcConnector = require('../src/rpc-connector')
 const {getPoolContracts, getPoolsData} = require('../src/pools')
@@ -19,35 +19,35 @@ jest.mock('../src/utils', () => ({
     getVWAP: jest.fn((volume, quoteVolume) => volume && quoteVolume ? 100n : 0n)
 }))
 
-describe('TradesAggregator', () => {
-    let aggregator
+describe('StellarProvider', () => {
+    let provider
 
     beforeEach(() => {
-        aggregator = new TradesAggregator()
+        provider = new StellarProvider()
         RpcConnector.mockClear()
         TxCache.mockClear()
     })
 
     test('init throws on missing rpcUrls', async () => {
-        await expect(aggregator.init([], 'network')).rejects.toThrow('Invalid RPC URLs')
-        await expect(aggregator.init(null, 'network')).rejects.toThrow('Invalid RPC URLs')
+        await expect(provider.init({rpcUrls: [], network: 'network'})).rejects.toThrow('Invalid RPC URLs')
+        await expect(provider.init({rpcUrls: null, network: 'network'})).rejects.toThrow('Invalid RPC URLs')
     })
 
     test('init throws on missing network', async () => {
-        await expect(aggregator.init(['url'], null)).rejects.toThrow('Invalid network passphrase')
+        await expect(provider.init({rpcUrls: ['url'], network: null})).rejects.toThrow('Invalid network passphrase')
     })
 
     test('init sets up connector, network, cache', async () => {
-        await aggregator.init(['url1', 'url2'], 'testnet')
-        expect(aggregator.connector).toBeInstanceOf(RpcConnector)
-        expect(aggregator.network).toBe('testnet')
-        expect(aggregator.cache).toBeInstanceOf(TxCache)
+        await provider.init({rpcUrls: ['url1', 'url2'], network: 'testnet'})
+        expect(provider.connector).toBeInstanceOf(RpcConnector)
+        expect(provider.network).toBe('testnet')
+        expect(provider.cache).toBeInstanceOf(TxCache)
     })
 
-    test('aggregateTrades returns correct structure', async () => {
-        await aggregator.init(['url'], 'network')
+    test('getData returns correct structure', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network'})
         getPoolContracts.mockResolvedValue(['contract1', 'contract2'])
-        aggregator.cache.updateCache = jest.fn().mockResolvedValue()
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexData.mockReturnValue([
             [{asset: {type: 1, code: 'USD'}, volume: 5n, quoteVolume: 20n, ts: 1000}, {asset: {type: 1, code: 'EUR'}, volume: 15n, quoteVolume: 60n, ts: 1000}],
             [{asset: {type: 1, code: 'USD'}, volume: 10n, quoteVolume: 20n, ts: 2000}, {asset: {type: 1, code: 'EUR'}, volume: 30n, quoteVolume: 60n, ts: 2000}]
@@ -64,17 +64,17 @@ describe('TradesAggregator', () => {
             period: 1000,
             limit: 2
         }
-        const result = await aggregator.aggregateTrades(options)
+        const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
         expect(result[0]).toHaveLength(2)
         expect(result[0][0]).toEqual({price: 100n, ts: 1000, type: 'price'})
         expect(result[1][1]).toEqual({price: 100n, ts: 2000, type: 'price'})
     })
 
-    test('aggregateTrades handles empty data', async () => {
-        await aggregator.init(['url'], 'network')
+    test('getPriceData handles empty data', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network'})
         getPoolContracts.mockResolvedValue([])
-        aggregator.cache.updateCache = jest.fn().mockResolvedValue()
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexData.mockReturnValue([null, []])
         getPoolsData.mockReturnValue([[], null])
 
@@ -85,7 +85,7 @@ describe('TradesAggregator', () => {
             period: 1000,
             limit: 2
         }
-        const result = await aggregator.aggregateTrades(options)
+        const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
         expect(result[0][0].price).toBe(0n)
     })

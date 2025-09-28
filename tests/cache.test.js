@@ -118,7 +118,7 @@ describe('TxCache', () => {
         cache.__processPoolData = jest.fn()
         cache.__evictExpired = jest.fn()
         const poolContracts = new Map([['id', createMockPoolProvider()]])
-        await cache.updateCache(rpc, 'testnet', 60, 1, poolContracts)
+        await cache.updateCache(60, 1, poolContracts)
         expect(rpc.generateLedgerRanges).toHaveBeenCalled()
         expect(rpc.fetchTransactions).toHaveBeenCalled()
         expect(cache.poolContracts).toBe(poolContracts)

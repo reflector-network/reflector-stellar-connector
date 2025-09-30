@@ -97,11 +97,13 @@ class RpcConnector {
 
     async getLedgerInfo() {
         //retrieve latest available ledger sequence
-        const {latestLedgerCloseTime, latestLedger, oldestLedgerCloseTime, oldestLedger} = await this.getTransaction('0'.repeat(64))
+        const {latestLedgerCloseTime: latestLedgerCloseTimeStr, latestLedger, oldestLedgerCloseTime: oldestLedgerCloseTimeStr, oldestLedger} = await this.getTransaction('0'.repeat(64))
 
+        const latestLedgerCloseTime = Number(latestLedgerCloseTimeStr)
+        const oldestLedgerCloseTime = Number(oldestLedgerCloseTimeStr)
         //compute seconds per ledger
         const secondsPerLedger = (latestLedgerCloseTime - oldestLedgerCloseTime) / (latestLedger - oldestLedger)
-        return {secondsPerLedger, latestLedger}
+        return {secondsPerLedger, latestLedger, oldestLedger, oldestLedgerCloseTime, latestLedgerCloseTime}
     }
 
     /**
@@ -110,6 +112,8 @@ class RpcConnector {
      * @return {Promise<Map<string, {key: string, xdr: string, lastModifiedLedger: number, liveUntilLedgerSeq: number}>>} Map of contract IDs to their ledger entries
      */
     async loadContractInstances(contracts) {
+        if (!contracts || contracts.length === 0)
+            return new Map() //nothing to load
         //create contract props mapping
         const generateKeys = () => {
             const maxEntries = 200 //max entries per request

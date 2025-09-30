@@ -33,6 +33,7 @@ class AquaPoolProvider extends PoolProviderBase {
 
                 return ({
                     address: pool.address,
+                    assets: pool.tokens_str,
                     type
                 })
             }).filter(value => !!value)
@@ -60,7 +61,7 @@ class AquaPoolProvider extends PoolProviderBase {
             const poolData = extractAquaPoolData(poolInstance)
 
             //skip if pool is invalid
-            if (!poolData) {
+            if (!poolData || poolData.reserves.some(r => r <= 0n)) {
                 console.debug({msg: 'Skipping invalid pool', poolId: contractId})
                 return null
             }

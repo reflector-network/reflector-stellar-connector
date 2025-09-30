@@ -91,22 +91,14 @@ function encodeAssetContractId(asset, networkPassphrase) {
  * @return {Asset|null}
  */
 function convertToStellarAsset(asset) {
-    switch (asset.type) {
-        case 1: {//Stellar asset
-            if (!asset.code)
-                throw new Error(`Asset code is required`)
-            const [code, issuer] = asset.code.split(':')
-            if (code === 'XLM' && !issuer)
-                return Asset.native()
-            else if (code && issuer)
-                return new Asset(code, issuer)
-            else
-                throw new Error(`Invalid asset code format: ${asset.code}. Expected 'code:issuer' format.`)
-        }
-        default:
-            console.warn(`Unknown asset type: ${asset.type}. Expected 1 for Stellar asset.`)
-    }
-    return null
+    const [assetCode, issuer] = asset.split(':')
+    if (!assetCode)
+        throw new Error(`Asset code is required`)
+    if (assetCode === 'XLM' && !issuer)
+        return Asset.native()
+    else if (assetCode && issuer)
+        return new Asset(assetCode, issuer)
+    throw new Error(`Invalid asset code format: ${asset.code}. Expected 'code:issuer' format.`)
 }
 
 /**

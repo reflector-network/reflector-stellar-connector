@@ -18,6 +18,12 @@ jest.mock('../src/utils', () => ({
     convertToStellarAsset: jest.fn(a => a),
     getVWAP: jest.fn((volume, quoteVolume) => volume && quoteVolume ? 100n : 0n)
 }))
+//mock console
+console.debug = jest.fn()
+console.info = jest.fn()
+console.warn = jest.fn()
+console.error = jest.fn()
+console.log = jest.fn()
 
 describe('StellarProvider', () => {
     let provider
@@ -62,7 +68,7 @@ describe('StellarProvider', () => {
             assets: [{type: 1, code: 'USD'}, {type: 1, code: 'EUR'}],
             from: 1000,
             period: 1000,
-            limit: 2
+            count: 2
         }
         const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)

@@ -43,11 +43,11 @@ class StellarProvider {
      *  assets: {type: number, code: string}[],
      *  from: number,
      *  period: number,
-     *  limit: number
+     *  count: number
      * }} options - Options object
      * @return {[{price: BigInt, ts: number, type: string}][]}
      */
-    async getPriceData({baseAsset, assets, from, period, limit}) {
+    async getPriceData({baseAsset, assets, from, period, count}) {
 
         //convert asset format
         const aggBaseAsset = convertToStellarAsset(baseAsset)
@@ -57,52 +57,29 @@ class StellarProvider {
         const poolContracts = await getPoolContracts(aggBaseAsset, aggAssets)
 
         //update cache with recent transactions and pools data
-        await this.cache.updateCache(from, period, limit, poolContracts)
+        await this.cache.updateCache(period, count, poolContracts)
 
-        const tradesData = getDexData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, limit)
-        const poolsData = getPoolsData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, limit)
+        const tradesData = getDexData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, count)
+        const poolsData = getPoolsData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, count)
 
-        const aggregatorDataToLog = (aggrData) => {
-            const logData = []
-            for (const tsData of aggrData) {
-                if (!tsData) {
-                    logData.push(null)
-                    continue
-                }
-                for (const assetData of tsData) {
-                    logData.push({
-                        asset: assetData.asset,
-                        volume: assetData.volume?.toString(),
-                        quoteVolume: assetData.quoteVolume?.toString(),
-                        ts: assetData.ts
-                    })
-                }
-            }
-            return logData
-        }
-
-        console.debug({msg: 'Aggregated trades data', data: aggregatorDataToLog(tradesData)})
-        console.debug({msg: 'Aggregated pools data', data: aggregatorDataToLog(poolsData)})
-
-        const data = Array.from({length: tradesData.length})
+        const data = Array.from({length: count})
             .map(() => Array.from({length: assets.length})
                 .map(() => ({price: 0n, ts: 0, type: 'price'}))) //empty results array
         //tradesData is an array of arrays, where each inner array corresponds to a period
-        for (let i = 0; i < limit; i++) {
+        for (let i = 0; i < count; i++) {
             const ts = from + period * i
             for (let j = 0; j < assets.length; j++) {
                 const price = getPrice(
                     tradesData[i]?.[j],
                     poolsData[i]?.[j]
                 )
-                data[i][j] = {
+                data[i][j] = [{
                     price,
                     ts,
                     type: 'price'
-                }
+                }]
             }
         }
-        console.debug({msg: 'Aggregated prices', data: data.map(dItem => dItem.map(p => ({...p, price: p.price.toString()})))})
         return data
     }
 }

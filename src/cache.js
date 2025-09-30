@@ -27,28 +27,35 @@ class TxCache {
     async worker(targetTimestamp) {
         console.info({msg: 'Start stellar-connector pools instance worker', network: this.network, targetTimestamp})
         try {
-            let dataTime = 0
-            do {
+            let dataTimestamp = 0
+            while (targetTimestamp + 10000 > Date.now()) { //wait up to 10 seconds after the target timestamp
                 const info = await this.rpcConnector.getLedgerInfo()
-                if (info?.latestLedgerCloseTime > targetTimestamp) {
-                    dataTime = info.latestLedgerCloseTime
+                const ledgerCloseTime = (info?.latestLedgerCloseTime ?? 0) * 1000
+                if (ledgerCloseTime > targetTimestamp) {
+                    dataTimestamp = info.latestLedgerCloseTime
+                    console.debug({msg: 'Ledger close time', network: this.network, ledgerCloseTime, targetTimestamp})
                     break //we have reached the target timestamp
                 }
                 await new Promise(resolve => setTimeout(resolve, 50))
-            } while (targetTimestamp + 2000 < Date.now()) //wait up to 2 seconds after the target timestamp
-            if (!dataTime) {
-                console.warn({msg: 'No data found for stellar-connector pools instance', targetTimestamp, network: this.network})
+            }
+            if (!dataTimestamp) {
+                console.warn({msg: 'Unable to receive ledger close time', targetTimestamp, network: this.network})
                 return
             }
             //update cache with recent data
-            const poolsData = await this.rpcConnector.loadContractInstances([...this.poolContracts.keys()])
-            this.pendingPoolsData = {timestamp: normalizeTimestamp(dataTime), ...poolsData}
+            const poolData = await this.rpcConnector.loadContractInstances([...this.poolContracts.keys()])
+            if (!poolData || poolData.size === 0) {
+                console.warn({msg: 'No pool contracts defined for stellar-connector pools instance', network: this.network})
+                return
+            }
+            this.pendingPoolData = {timestamp: normalizeTimestamp(dataTimestamp, this.period), poolData}
         } catch (err) {
             console.error({err, msg: 'Error in stellar-connector pools instance', network: this.network})
         } finally {
-            const timeout = targetTimestamp + this.period * 1000 - 2000 - Date.now()//run 2 seconds before the next period
+            targetTimestamp += this.period * 1000
+            const timeout = targetTimestamp - 1000 - Date.now()//run 1 second before the next period
             console.debug({msg: 'Stellar-connector timeout', network: this.network, timeout})
-            this.__workerTimeout = setTimeout(() => this.worker(), timeout)
+            this.__workerTimeout = setTimeout(() => this.worker(targetTimestamp), timeout)
         }
     }
 
@@ -69,7 +76,7 @@ class TxCache {
     lastCachedLedger = 0
     /**
      * Pools data structure: key is the pool contract ID and value are the tokens and their reserves
-     * @type {Map<number, {trades: Trade[], poolsData: Map<string, {tokens: string[], reserves: BigInt[]}>, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
+     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}>, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
      * @private
      */
     timestampData = new Map()
@@ -79,9 +86,9 @@ class TxCache {
      */
     poolContracts = new Map()
     /**
-     * @type {{timestamp: number, poolsData: Map<string, {key: string, xdr: string, lastModifiedLedger: number}>}}
+     * @type {{timestamp: number, poolData: Map<string, {key: string, xdr: string, lastModifiedLedger: number}>}}
      */
-    pendingPoolsData = null
+    pendingPoolData = null
 
     /**
      * @param {TransactionInfo} tx - transaction info object
@@ -152,7 +159,7 @@ class TxCache {
             //get timestamp data
             const timestampData = this.timestampData.get(ts)
             if (timestampData)
-                result.push(...[...timestampData.poolsData.values()])
+                result.push(...[...timestampData.poolData.values()])
         }
         return result
     }
@@ -181,11 +188,11 @@ class TxCache {
      */
     __processPoolData() {
         //retrieve pending pool data
-        if (!this.pendingPoolsData)
+        if (!this.pendingPoolData)
             return
-        const {timestamp, poolsData} = this.pendingPoolsData
+        const {timestamp, poolData} = this.pendingPoolData
         //iterate over all loaded pool instances
-        for (const [contractId, instanceData] of poolsData) {
+        for (const [contractId, instanceData] of poolData) {
             const provider = this.poolContracts.get(contractId)
             if (!provider)
                 continue //unknown contract - skip
@@ -194,7 +201,7 @@ class TxCache {
             if (!reserves || !tokens)
                 continue //invalid or unsupported pool - skip
             //get pool last modified ledger
-            const poolLedger = instanceData.lastModifiedLedger
+            const poolLedger = instanceData.lastModifiedLedgerSeq
             let timestampData = null
             //try find existing timestamp entry that contains pool data for the same or earlier ledger
             if (this.timestampData.size) {
@@ -207,10 +214,10 @@ class TxCache {
                 timestampData = this.__ensureTimestampData(timestamp)
             }
             //set pool data
-            timestampData.poolsData.set(contractId, {reserves, tokens})
+            timestampData.poolData.set(contractId, {reserves, tokens})
         }
         //clear pending data
-        this.pendingPoolsData = null
+        this.pendingPoolData = null
     }
 
     /**
@@ -232,7 +239,7 @@ class TxCache {
     /**
      * Ensure that timestamp data entry exists
      * @param {number} timestamp
-     * @return {{trades: Trade[], poolsData: Map<string, Map<string, BigInt[]>>, processedTxs: Set<string>, ledgers: {min: number, max: number}}}
+     * @return {{trades: Trade[], poolData: Map<string, Map<string, BigInt[]>>, processedTxs: Set<string>, ledgers: {min: number, max: number}}}
      * @private
      */
     __ensureTimestampData(timestamp) {

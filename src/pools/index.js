@@ -59,8 +59,11 @@ async function getPoolContracts(baseAsset, assets) {
     for (const provider of poolProviders) {
         loadPoolsPromises.push(loadSingleProviderData(provider, baseAsset, assets))
     }
-    const allPools = await Promise.all(loadPoolsPromises)
-    return allPools.flat()
+    const providers = await Promise.all(loadPoolsPromises)
+    let result = new Map()
+    for (const provider of providers)
+        result = new Map([...result, ...provider])
+    return result
 }
 
 

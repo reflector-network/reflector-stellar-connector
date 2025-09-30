@@ -77,8 +77,8 @@ class PoolProviderBase {
                 if (!quoteAsset)
                     continue
                 targetPools.push(pool.address)
-                console.debug({msg: 'Found pool', baseAsset: baseAssetStr, quoteAsset, poolId: pool.address, type: pool.type})
             }
+            console.debug({msg: 'Pools found', baseAsset: baseAssetStr, pools: targetPools})
             return targetPools
         } catch (err) {
             console.error({msg: `Error loading pool list for ${this.constructor.name} provider`, err})

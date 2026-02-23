@@ -73,8 +73,8 @@ describe('StellarProvider', () => {
         const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
         expect(result[0]).toHaveLength(2)
-        expect(result[0][0]).toEqual({price: 100n, ts: 1000, type: 'price'})
-        expect(result[1][1]).toEqual({price: 100n, ts: 2000, type: 'price'})
+        expect(result[0][0]).toEqual([{price: 100n, ts: 1000, type: 'price'}])
+        expect(result[1][1]).toEqual([{price: 100n, ts: 2000, type: 'price'}])
     })
 
     test('getPriceData handles empty data', async () => {
@@ -89,10 +89,10 @@ describe('StellarProvider', () => {
             assets: [{type: 1, code: 'USD'}],
             from: 0,
             period: 1000,
-            limit: 2
+            count: 2
         }
         const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
-        expect(result[0][0].price).toBe(0n)
+        expect(result[0][0][0].price).toBe(0n)
     })
 })

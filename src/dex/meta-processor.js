@@ -1,4 +1,5 @@
 const {Asset, xdr} = require('@stellar/stellar-sdk')
+const {adjustPrecision} = require('../utils')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').xdr.TransactionResult} TransactionResult
@@ -78,8 +79,9 @@ function processDexTrade(claimedAtom) {
     const value = claimedAtom.value()
     const res = {
         type,
-        amountSold: value.amountSold()._value,
-        amountBought: value.amountBought()._value
+        //all trade amounts are in 7-digit precision, so we need to adjust them to get correct values
+        amountSold: adjustPrecision(value.amountSold()._value, 7),
+        amountBought: adjustPrecision(value.amountBought()._value, 7)
     }
     if (!res.amountSold || !res.amountBought)
         return null

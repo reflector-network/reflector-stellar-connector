@@ -21,8 +21,8 @@ describe('DexTradesAggregator', () => {
     ]
     const resPrices = [
         {
-            quoteVolume: 10670398723n,
-            volume: 5319168566n,
+            quoteVolume: 106703987230000000n,
+            volume: 53191685660000000n,
             ts: 1
         },
         {
@@ -36,8 +36,8 @@ describe('DexTradesAggregator', () => {
             ts: 1
         },
         {
-            quoteVolume: 6032655521n,
-            volume: 2016928760n,
+            quoteVolume: 60326555210000000n,
+            volume: 20169287600000000n,
             ts: 1
         },
         {
@@ -86,7 +86,7 @@ describe('DexTradesAggregator', () => {
 
 function txFromXdr(resultXdr) {
     return {
-        resultXdr,//: xdr.TransactionResultPair.fromXDR(Buffer.from(resultXdr, 'base64')).result().toXDR('base64'),
+        resultXdr: xdr.TransactionResultPair.fromXDR(Buffer.from(resultXdr, 'base64')).result().toXDR('base64'),
         hash: ''
     }
 }

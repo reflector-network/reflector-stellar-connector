@@ -10,6 +10,12 @@ const mockXdrParseResult = jest.fn(() => [{amountBought: 1n, amountSold: 2n, ass
 jest.mock('../src/dex/meta-processor', () => ({
     xdrParseResult: (...args) => mockXdrParseResult(...args)
 }))
+//mock console
+console.debug = jest.fn()
+console.info = jest.fn()
+console.warn = jest.fn()
+console.error = jest.fn()
+console.log = jest.fn()
 
 function createMockRpcConnector() {
     return {
@@ -96,8 +102,8 @@ describe('TxCache', () => {
 
     test('getTradesForPeriod returns trades in range', () => {
         const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
-        cache.timestampData.set(0, {trades: [{amountBought: 1n}], poolsData: new Map()})
-        cache.timestampData.set(60, {trades: [{amountBought: 2n}], poolsData: new Map()})
+        cache.timestampData.set(0, {trades: [{amountBought: 1n}], poolData: new Map()})
+        cache.timestampData.set(60, {trades: [{amountBought: 2n}], poolData: new Map()})
         const trades = cache.getTradesForPeriod(0, 120)
         expect(trades).toEqual([{amountBought: 1n}, {amountBought: 2n}])
     })
@@ -106,8 +112,8 @@ describe('TxCache', () => {
         const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
         const poolsData1 = new Map([['id1', {tokens: ['A'], reserves: [1n]}]])
         const poolsData2 = new Map([['id2', {tokens: ['B'], reserves: [2n]}]])
-        cache.timestampData.set(0, {trades: [], poolsData: poolsData1})
-        cache.timestampData.set(60, {trades: [], poolsData: poolsData2})
+        cache.timestampData.set(0, {trades: [], poolData: poolsData1})
+        cache.timestampData.set(60, {trades: [], poolData: poolsData2})
         const pools = cache.getPoolsDataForPeriod(0, 120)
         expect(pools).toEqual([{tokens: ['A'], reserves: [1n]}, {tokens: ['B'], reserves: [2n]}])
     })

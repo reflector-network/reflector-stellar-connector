@@ -1,13 +1,26 @@
-const {xdr, Asset} = require('@stellar/stellar-sdk')
+const {Asset, xdr} = require('@stellar/stellar-sdk')
+const {adjustPrecision} = require('../utils')
+
+/**
+ * @typedef {import('@stellar/stellar-sdk').xdr.TransactionResult} TransactionResult
+ */
+
+/**
+ * @typedef {Object} Trade
+ * @property {BigInt} amountSold
+ * @property {BigInt} amountBought
+ * @property {string} assetSold
+ * @property {string} assetBought
+ * @property {'offer'|'pool'} type
+ */
 
 /**
  * Parse raw XDR result
- * @param {TransactionResult} result
- * @param {string} txHash
+ * @param {any} tx - XDR result of the transaction
  * @return {Trade[]|null}
  */
-function xdrParseResult(result, txHash) {
-    const innerResult = result.result()
+function xdrParseResult(tx) {
+    const innerResult = xdr.TransactionResult.fromXDR(tx.resultXdr, 'base64').result()
     const txResultState = innerResult.switch()
     if (txResultState.value < 0)
         return null //tx failed
@@ -21,8 +34,8 @@ function xdrParseResult(result, txHash) {
             opResults = innerResult.results()
         }
         return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
-    } catch (e) {
-        console.error(new AggregateError([e], 'Error processing tx ' + txHash))
+    } catch (err) {
+        console.error({err, msg: 'Error processing tx', tx: tx.hash})
         return null
     }
 }
@@ -40,13 +53,14 @@ function parseRawOpResult(rawOpResult) {
         case 'manageSellOfferSuccess':
         case 'manageBuyOfferSuccess':
             return opResult.value().offersClaimed().map(claimedOffer => processDexTrade(claimedOffer))
+        default:
+            return null
     }
-    return null
 }
 
 /**
  * Parse DEX trades from claimed offers
- * @param {xdr.ClaimAtom} claimedAtom
+ * @param {xdr.ClaimAtom} claimedAtom - claimed atom from the operation
  * @return {Trade|null}
  */
 function processDexTrade(claimedAtom) {
@@ -65,23 +79,15 @@ function processDexTrade(claimedAtom) {
     const value = claimedAtom.value()
     const res = {
         type,
-        amountSold: value.amountSold()._value,
-        amountBought: value.amountBought()._value
+        //all trade amounts are in 7-digit precision, so we need to adjust them to get correct values
+        amountSold: adjustPrecision(value.amountSold()._value, 7),
+        amountBought: adjustPrecision(value.amountBought()._value, 7)
     }
     if (!res.amountSold || !res.amountBought)
         return null
-    res.assetSold = Asset.fromOperation(value.assetSold())
-    res.assetBought = Asset.fromOperation(value.assetBought())
+    res.assetSold = Asset.fromOperation(value.assetSold()).toString()
+    res.assetBought = Asset.fromOperation(value.assetBought()).toString()
     return res
 }
 
 module.exports = {xdrParseResult}
-
-/**
- * @typedef {{}} Trade
- * @property {BigInt} amountSold
- * @property {BigInt} amountBought
- * @property {Asset} assetSold
- * @property {Asset} assetBought
- * @property {'offer'|'pool'} type
- */

@@ -1,50 +1,87 @@
 const RpcConnector = require('./rpc-connector')
-const {DexTradesAggregator} = require('./dex-trades-aggregator')
-const {convertToStellarAsset} = require('./asset-encoder')
-const {trimTimestampTo} = require('./time-util')
-const TradesCache = require('./cache')
-
-let cache
+const {getDexData} = require('./dex')
+const {getPoolsData, getPoolContracts} = require('./pools')
+const {convertToStellarAsset, getVWAP} = require('./utils')
+const TxCache = require('./cache')
 
 /**
- * Aggregate trades and prices
- * @param {string} rpcUrl - URL of the RPC server with enabled `getTransactions` and `getLedgers` endpoints
- * @param {{type: number, code: string}} baseAsset - Base asset
- * @param {{type: number, code: string}[]} assets - Tracked assets
- * @param {number} from - Analyzed period timestamp (Unix timestamp)
- * @param {number} period - Timeframe length, in second
- * @param {number} limit - Number of periods to fetch
- * @return {Promise<{volume: bigint, quoteVolume: bigint}[][]>}
+ * @typedef {import('./asset-volumes-accumulator')} AssetVolumesAccumulator
  */
-async function aggregateTrades({rpcUrl, baseAsset, assets, from, period, limit}) {
-    if (!cache) {
-        cache = new TradesCache(period)
-    }
-    const rpc = new RpcConnector(rpcUrl, cache)
-    //convert asset format
-    const aggBaseAsset = convertToStellarAsset(baseAsset)
-    const aggAssets = assets.map(a => convertToStellarAsset(a))
-    //generate ledger sequence ranges to load transactions
-    const ranges = await rpc.generateLedgerRanges(period, limit + 1, 3)
-    //load ranges in parallel
-    await Promise.all(ranges.map(range => rpc.fetchTransactions(range.from, range.to)))
-    //prepare results
-    let results = []
-    for (let i = 0; i < limit; i++) {
-        const periodFrom = from + period * i
-        const tradesAggregator = new DexTradesAggregator(aggBaseAsset, aggAssets)
-        //retrieve trades for current period
-        const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodFrom + period)
-        //accumulate trades
-        tradesAggregator.processPeriodTrades(tradesForPeriod)
-        //aggregate volumes
-        const volumes = tradesAggregator.aggregatePrices(assets.length, periodFrom)
-        //add to results
-        results.push(volumes)
-    }
-    //clean up unneeded entries from cache
-    cache.evictExpired()
-    return results
+
+
+/**
+ * Compute the price based on trades and pools data
+ * @param {AssetVolumesAccumulator} tradesData - Aggregated trades data
+ * @param {AssetVolumesAccumulator} poolsData - Aggregated pools data
+ * @return {Bigint}
+ */
+function getPrice(tradesData, poolsData) {
+    const volume = (tradesData?.volume || 0n) + (poolsData?.volume || 0n)
+    const quoteVolume = (tradesData?.quoteVolume || 0n) + (poolsData?.quoteVolume || 0n)
+    return getVWAP(volume, quoteVolume)
 }
 
-module.exports = {aggregateTrades, trimTimestampTo}
+class StellarProvider {
+
+    async init({rpcUrls, network}) {
+        if (!rpcUrls || rpcUrls.length === 0) {
+            throw new Error('Invalid RPC URLs')
+        }
+        if (!network) {
+            throw new Error('Invalid network passphrase')
+        }
+        this.connector = new RpcConnector(rpcUrls)
+        this.network = network
+        this.cache = new TxCache(this.connector, network)
+        await Promise.resolve()
+    }
+
+    /**
+     * Aggregate trades and prices
+     * @param {{
+     *  baseAsset: {type: number, code: string},
+     *  assets: {type: number, code: string}[],
+     *  from: number,
+     *  period: number,
+     *  count: number
+     * }} options - Options object
+     * @return {[{price: BigInt, ts: number, type: string}][]}
+     */
+    async getPriceData({baseAsset, assets, from, period, count}) {
+
+        //convert asset format
+        const aggBaseAsset = convertToStellarAsset(baseAsset)
+        const aggAssets = assets.map(a => convertToStellarAsset(a))
+
+        //load pool contracts for the specified assets
+        const poolContracts = await getPoolContracts(aggBaseAsset, aggAssets)
+
+        //update cache with recent transactions and pools data
+        await this.cache.updateCache(period, count, poolContracts)
+
+        const tradesData = getDexData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, count)
+        const poolsData = getPoolsData(this.cache, aggBaseAsset, aggAssets, this.network, from, period, count)
+
+        const data = Array.from({length: count})
+            .map(() => Array.from({length: assets.length})
+                .map(() => ({price: 0n, ts: 0, type: 'price'}))) //empty results array
+        //tradesData is an array of arrays, where each inner array corresponds to a period
+        for (let i = 0; i < count; i++) {
+            const ts = from + period * i
+            for (let j = 0; j < assets.length; j++) {
+                const price = getPrice(
+                    tradesData[i]?.[j],
+                    poolsData[i]?.[j]
+                )
+                data[i][j] = [{
+                    price,
+                    ts,
+                    type: 'price'
+                }]
+            }
+        }
+        return data
+    }
+}
+
+module.exports = StellarProvider

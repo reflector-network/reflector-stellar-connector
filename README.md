@@ -23,11 +23,11 @@ API endpoints enabled.
 
 Aggregate trades for a given period:
 ```js
-const {createRpcConnection, trimTimestampTo} = require('@reflector/stellar-connector')
+const {createRpcConnection, normalizeTimestamp} = require('@reflector/stellar-connector')
 
 const period = 60
 const limit = 7
-const from = trimTimestampTo(new Date().getTime() / 1000, period) - period * limit
+const from = normalizeTimestamp(new Date().getTime() / 1000, period) - period * limit
 console.log('From', from)
 aggregateTrades({
     rpcUrl: 'http://...',
@@ -45,12 +45,12 @@ aggregateTrades({
 /*
 [
   [
-    { volume: 0n, quoteVolume: 0n, ts: 1735890540 },
-    { volume: 3937242822n, quoteVolume: 5298271n, ts: 1735890540 }
+    { price: 0n, ts: 1735890540 },
+    { price: 3937242822n, ts: 1735890540 }
   ],
   [
-    { volume: 1346588n, quoteVolume: 398800n, ts: 1735890600 },
-    { volume: 295468416n, quoteVolume: 398800n, ts: 1735890600 }
+    { price: 1346588n, ts: 1735890600 },
+    { price: 295468416n, ts: 1735890600 }
   ]
 ]*/
 ```

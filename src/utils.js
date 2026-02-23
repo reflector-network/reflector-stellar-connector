@@ -1,0 +1,186 @@
+const {Asset, StrKey, hash, xdr} = require('@stellar/stellar-sdk')
+
+/**
+ * Default number of decimals for price calculations
+ * @type {number}
+ * @constant
+ */
+const DEFAULT_DECIMALS = 7
+
+/**
+ * Target number of decimals for price calculations
+ * @type {number}
+ * @constant
+ */
+const TARGET_DECIMALS = 14
+
+/**
+ * Calculate price from volume and quote volume
+ * @param {BigInt} volume - volume
+ * @param {BigInt} quoteVolume - quote volume
+ * @param {number} [decimals] - number of decimals to scale the result (default is TARGET_DECIMALS = 14)
+ * @returns {BigInt}
+ */
+function getVWAP(volume, quoteVolume, decimals = TARGET_DECIMALS) {
+    const preciseVolume = scaleValue(volume, decimals * 2) //multiply decimals by 2 to get correct price
+    const preciseQuoteVolume = scaleValue(quoteVolume, decimals)
+    if (preciseVolume === 0n || preciseQuoteVolume === 0n)
+        return 0n
+    return preciseVolume / preciseQuoteVolume
+}
+
+/**
+ * Convert value to BigInt with specified number of decimals
+ * @param {BigInt} value - value
+ * @param {number} decimals - number of decimals
+ * @returns {BigInt}
+ */
+function scaleValue(value, decimals) {
+    if (typeof value !== 'bigint')
+        throw new Error('Value should be expressed as BigInt')
+    if (typeof decimals !== 'number' || isNaN(decimals))
+        throw new Error('Decimals should be expressed as Number')
+    if (value === 0n)
+        return 0n
+    return value * (10n ** BigInt(decimals))
+}
+
+/**
+ * Normalize timestamp to the nearest timeframe
+ * @param {number} timestamp - timestamp
+ * @param {number} timeframe - timeframe to normalize to
+ * @returns {number} - normalized timestamp
+ */
+function normalizeTimestamp(timestamp, timeframe) {
+    return Math.floor(timestamp / timeframe) * timeframe
+}
+
+const passphraseMapping = {}
+
+/**
+ * Resolve network id hash from a passphrase (with pre-caching)
+ * @param {String} networkPassphrase - network passphrase (e.g. Networks.PUBLIC)
+ * @return {Buffer}
+ */
+function getNetworkIdHash(networkPassphrase) {
+    let networkId = passphraseMapping[networkPassphrase]
+    if (!networkId) {
+        networkId = passphraseMapping[networkPassphrase] = hash(Buffer.from(networkPassphrase))
+    }
+    return networkId
+}
+
+/**
+ * Encode ContractId for a given wrapped Stellar classic asset
+ * @param {Asset} asset - stellar asset to encode
+ * @param {String} networkPassphrase - network passphrase (e.g. Networks.PUBLIC)
+ * @return {String}
+ */
+function encodeAssetContractId(asset, networkPassphrase) {
+    const assetContractId = new xdr.HashIdPreimageContractId({
+        networkId: getNetworkIdHash(networkPassphrase),
+        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(asset.toXDRObject())
+    })
+    const preimage = xdr.HashIdPreimage.envelopeTypeContractId(assetContractId)
+    return StrKey.encodeContract(hash(preimage.toXDR()))
+}
+
+/**
+ * Convert asset descriptor to Stellar Asset
+ * @param {{type:number, code:string}} asset - oracle asset object. Code should be in 'code:issuer' format.
+ * @return {Asset|null}
+ */
+function convertToStellarAsset(asset) {
+    const [assetCode, issuer] = asset.split(':')
+    if (!assetCode)
+        throw new Error(`Asset code is required`)
+    if (assetCode === 'XLM' && !issuer)
+        return Asset.native()
+    else if (assetCode && issuer)
+        return new Asset(assetCode, issuer)
+    throw new Error(`Invalid asset code format: ${asset.code}. Expected 'code:issuer' format.`)
+}
+
+/**
+ * Normalize value to a fixed precision
+ *
+ * @param {BigInt} value - value to normalize
+ * @param {number} digits - number of digits in the value
+ * @param {number} [targetDigits] - target number of digits for normalization (default is TARGET_DECIMALS = 14)
+ * @returns {BigInt} - normalized value
+ */
+function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
+    if (typeof value !== 'bigint') {
+        throw new Error('Value should be expressed as BigInt')
+    }
+    if (typeof digits !== 'number' || isNaN(digits) || digits < 0) {
+        throw new Error('Digits should be a non-negative number')
+    }
+    if (typeof targetDigits !== 'number' || isNaN(targetDigits) || targetDigits < 0) {
+        throw new Error('Target digits should be a non-negative number')
+    }
+    const diff = targetDigits - digits
+
+    if (diff === 0) return value
+    if (diff > 0) {
+        return value * BigInt(10 ** diff)
+    } else {
+        return value / BigInt(10 ** (-diff))
+    }
+}
+
+/**
+ * Invokes Stellar RPC method directly
+ * @param {string[]} rpcs - RPC URLs
+ * @param {string} method - RPC method name
+ * @param {{}} params - Parameters to pass to RPC
+ * @param {{[timeout], [signal]}} [options]
+ * @return {Promise<any>}
+ */
+function invokeRpcMethod(rpcs, method, params = undefined, options = undefined) {
+    for (const rpcUrl of rpcs) {
+        for (let i = 0; i < 3; i++) { //max 3 attempts
+            try {
+                let {timeout = 15_000, signal} = options || {}
+                if (!signal) {
+                    const abortController = new AbortController()
+                    setTimeout(() => abortController.abort(), timeout)
+                    signal = abortController.signal
+                }
+                const data = {
+                    jsonrpc: '2.0',
+                    id: 8675309,
+                    method,
+                    params
+                }
+                return fetch(rpcUrl, {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {'Content-Type': 'application/json'},
+                    signal
+                })
+                    .then(res => res.json())
+                    .then(res => {
+                        if (res.error)
+                            throw new Error('RPC error: ' + res.error.message + '\n' + res.error.data)
+                        return res.result
+                    })
+            } catch (e) {
+                console.warn({err: e, msg: 'Failed RPC request', args: params, rpcUrl})
+            }
+        }
+    }
+    throw new Error('Failed to invoke RPC method on all provided URLs')
+}
+
+module.exports = {
+    invokeRpcMethod,
+    getVWAP,
+    normalizeTimestamp,
+    encodeAssetContractId,
+    convertToStellarAsset,
+    adjustPrecision,
+    scaleValue,
+    DEFAULT_DECIMALS,
+    TARGET_DECIMALS
+}

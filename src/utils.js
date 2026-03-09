@@ -72,14 +72,16 @@ function getNetworkIdHash(networkPassphrase) {
 
 /**
  * Encode ContractId for a given wrapped Stellar classic asset
- * @param {Asset} asset - stellar asset to encode
+ * @param {string} asset - stellar asset code in 'code:issuer' format, or XLM for native, or contract ID for already wrapped assets
  * @param {String} networkPassphrase - network passphrase (e.g. Networks.PUBLIC)
  * @return {String}
  */
 function encodeAssetContractId(asset, networkPassphrase) {
+    if (StrKey.isValidContract(asset?.toString()))
+        return asset.toString()
     const assetContractId = new xdr.HashIdPreimageContractId({
         networkId: getNetworkIdHash(networkPassphrase),
-        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(asset.toXDRObject())
+        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(convertToStellarAsset(asset).toXDRObject())
     })
     const preimage = xdr.HashIdPreimage.envelopeTypeContractId(assetContractId)
     return StrKey.encodeContract(hash(preimage.toXDR()))
@@ -87,18 +89,18 @@ function encodeAssetContractId(asset, networkPassphrase) {
 
 /**
  * Convert asset descriptor to Stellar Asset
- * @param {{type:number, code:string}} asset - oracle asset object. Code should be in 'code:issuer' format.
+ * @param {string} asset - oracle asset object. Code should be in 'code:issuer' format.
  * @return {Asset|null}
  */
 function convertToStellarAsset(asset) {
     const [assetCode, issuer] = asset.split(':')
     if (!assetCode)
         throw new Error(`Asset code is required`)
-    if (assetCode === 'XLM' && !issuer)
+    if ((assetCode === 'XLM' || assetCode === 'native') && !issuer)
         return Asset.native()
     else if (assetCode && issuer)
         return new Asset(assetCode, issuer)
-    throw new Error(`Invalid asset code format: ${asset.code}. Expected 'code:issuer' format.`)
+    throw new Error(`Invalid asset code format: ${asset}. Expected 'code:issuer' format.`)
 }
 
 /**

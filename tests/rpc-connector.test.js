@@ -11,7 +11,7 @@ describe('RpcConnector.loadContractInstances', () => {
     let connector
 
     beforeEach(() => {
-        connector = new RpcConnector(['http://rpc-url'])
+        connector = new RpcConnector(['http://rpc-url'], 'testnet')
         jest.clearAllMocks()
     })
 

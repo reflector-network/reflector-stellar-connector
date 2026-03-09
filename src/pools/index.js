@@ -17,8 +17,8 @@ const poolProviders = [
 /**
  * Aggregate pools data for the specified base asset and assets
  * @param {TxCache} cache - Cache instance to store transactions
- * @param {Asset} baseAsset - base asset
- * @param {Asset[]} assets - tracked assets
+ * @param {string} baseAsset - base asset
+ * @param {string[]} assets - tracked assets
  * @param {string} network - network passphrase
  * @param {number} from - start timestamp for aggregation
  * @param {number} period - period in seconds for aggregation
@@ -50,8 +50,8 @@ function getPoolsData(cache, baseAsset, assets, network, from, period, limit) {
 
 /**
  * Load pools reserves data for the specified base asset and assets
- * @param {Asset} baseAsset - base asset to aggregate pools data against
- * @param {Asset[]} assets - list of assets to aggregate pools data for
+ * @param {string} baseAsset - base asset to aggregate pools data against
+ * @param {string[]} assets - list of assets to aggregate pools data for
  * @return {Promise<Map<string, PoolProviderBase>>} - list of pool contracts with their providers
  */
 async function getPoolContracts(baseAsset, assets) {
@@ -66,12 +66,11 @@ async function getPoolContracts(baseAsset, assets) {
     return result
 }
 
-
 /**
  * Load reserves data for a single pool provider
  * @param {PoolProviderBase} provider - pool provider instance
- * @param {Asset} baseAsset - base asset to aggregate pools data against
- * @param {Asset[]} assets - list of assets to aggregate pools data for
+ * @param {string} baseAsset - base asset to aggregate pools data against
+ * @param {string[]} assets - list of assets to aggregate pools data for
  * @return {Promise<Map<string, PoolProviderBase>>} - list of pool contracts with their providers
  */
 async function loadSingleProviderData(provider, baseAsset, assets) {

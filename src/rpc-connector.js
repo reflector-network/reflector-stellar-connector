@@ -1,4 +1,4 @@
-const {xdr, Address} = require('@stellar/stellar-sdk')
+const {xdr, Address, TransactionBuilder, Account, Keypair, scValToNative, Operation} = require('@stellar/stellar-sdk')
 const {invokeRpcMethod} = require('./utils')
 
 /**
@@ -21,9 +21,11 @@ class RpcConnector {
     /**
      * Create RPC connector instance
      * @param {string[]} rpcUrls - URLs of the RPC servers with enabled `getTransactions` and `getLedgerEntries` endpoints
+     * @param {string} networkPassphrase - Network passphrase
      */
-    constructor(rpcUrls) {
+    constructor(rpcUrls, networkPassphrase) {
         this.rpcUrls = rpcUrls
+        this.networkPassphrase = networkPassphrase
     }
 
     /**
@@ -31,6 +33,12 @@ class RpcConnector {
      * @readonly
      */
     rpcUrls
+
+    /**
+     * @type {string}
+     * @readonly
+     */
+    networkPassphrase
 
     /**
      * @param {number} from - Range lower bound ledger (inclusive)
@@ -155,6 +163,44 @@ class RpcConnector {
         if (!hash)
             throw new Error('Transaction hash is required')
         return await invokeRpcMethod(this.rpcUrls, 'getTransaction', {hash})
+    }
+
+    /**
+     * Simulate transaction on RPC
+     * @param {string} source - Source account for the transaction
+     * @param {{function: string, args: any[], contract: string}} invocationOp - Operation to invoke in the transaction
+     * @return {Promise<any[]>} Simulation result from RPC
+     */
+    async simulateTransaction(source, invocationOp) {
+        const options = {
+            networkPassphrase: this.networkPassphrase,
+            timebounds: {
+                minTime: 0,
+                maxTime: 0
+            },
+            fee: 10000
+        }
+
+        const response = await invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: [xdr.LedgerKey.account(new xdr.LedgerKeyAccount({
+            accountId: Keypair.fromPublicKey(source).xdrPublicKey()
+        })).toXDR('base64')]})
+
+        if (!response || !response.entries || response.entries.length === 0) {
+            throw new Error('Source account not found')
+        }
+
+        const sourceAccount = new Account(source, xdr.LedgerEntryData.fromXDR(response.entries[0].xdr, 'base64').value().seqNum().toString())
+
+        //keep original source account for the restore transaction
+        const transaction = new TransactionBuilder(sourceAccount, options)
+            .addOperation(Operation.invokeContractFunction(invocationOp))
+            .build()
+
+        /**@type {rpc.Api.SimulateTransactionSuccessResponse} */
+        const simulationResponse = await invokeRpcMethod(this.rpcUrls, 'simulateTransaction', {transaction: transaction.toXDR()})
+        if (simulationResponse.error)
+            throw new Error(simulationResponse.error)
+        return simulationResponse.results.map(r => scValToNative(xdr.ScVal.fromXDR(r.xdr, 'base64')))
     }
 }
 

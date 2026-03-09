@@ -53,12 +53,14 @@ class AquaPoolProvider extends PoolProviderBase {
     /**
      * @param {string} poolInstance - pool data instance in XDR format
      * @param {string} contractId - pool contract id
+     * @param {string} network - network passphrase
+     * @param {Map<string, {decimals: number}>} tokenMeta - Metadata for tokens to aggregate pools data for
      * @return {{reserves: BigInt[], tokens: string[]}|null} - pool reserves and tokens or null if the pool is invalid
      */
-    processPoolInstance(poolInstance, contractId) {
+    processPoolInstance(poolInstance, contractId, network, tokenMeta) {
         try {
             //extract pool data
-            const poolData = extractAquaPoolData(poolInstance)
+            const poolData = extractAquaPoolData(poolInstance, tokenMeta)
 
             //skip if pool is invalid
             if (!poolData || poolData.reserves.some(r => r <= 0n)) {

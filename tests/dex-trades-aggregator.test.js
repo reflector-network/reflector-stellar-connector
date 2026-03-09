@@ -9,15 +9,15 @@ function stringify(obj) {
 
 describe('DexTradesAggregator', () => {
     const issuer = 'GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW'
-    const baseAsset = new Asset('X', issuer)
+    const baseAsset = `X:${issuer}`
     const trackedAssets = [
         //two assets involved in trades
-        new Asset('B', issuer),
+        `B:${issuer}`,
         null, //not supported asset
-        new Asset('Y', issuer), //no trades
-        new Asset('C', issuer),
+        `Y:${issuer}`, //no trades
+        `C:${issuer}`,
         undefined, //not supported asset
-        new Asset('W', issuer)  //no trades
+        `W:${issuer}`  //no trades
     ]
     const resPrices = [
         {

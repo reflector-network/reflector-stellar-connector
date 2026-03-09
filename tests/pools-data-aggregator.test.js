@@ -1,5 +1,4 @@
 /*eslint-disable no-undef */
-const {Asset} = require('@stellar/stellar-base')
 const PoolsDataAggregator = require('../src/pools/pools-data-aggregator')
 
 function stringify(obj) {
@@ -28,7 +27,7 @@ const poolsData = [
 describe('PoolsDataAggregator', () => {
     test('Aggregate pool data', () => {
 
-        const aggregator = new PoolsDataAggregator(Asset.native(), [new Asset('AQUA', 'GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA')], 'Public Global Stellar Network ; September 2015', 1)
+        const aggregator = new PoolsDataAggregator('XLM', ['AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'], 'Public Global Stellar Network ; September 2015', 1)
         aggregator.processTokenReserves(poolsData)
 
         expect(aggregator.volumes.length).toBe(1)

@@ -7,8 +7,8 @@ const {encodeAssetContractId} = require('./utils')
 
 class AggregatorBase {
     /**
-     * @param {Asset} baseAsset - base asset to aggregate trades against
-     * @param {Asset[]} assets - list of assets to aggregate trades for
+     * @param {string} baseAsset - base asset to aggregate data against
+     * @param {string[]} assets - list of assets to aggregate data for
      * @param {string} network - network passphrase
      * @param {number} ts - timestamp for the aggregation
      */
@@ -20,7 +20,7 @@ class AggregatorBase {
         if (this.constructor === AggregatorBase)
             throw new Error('Cannot instantiate abstract class AggregatorBase')
 
-        this.baseAsset = baseAsset.toString()
+        this.baseAsset = baseAsset
         this.baseToken = encodeAssetContractId(baseAsset, network)
         this.tokens = new Map()
         //create asset->position mapping
@@ -30,9 +30,8 @@ class AggregatorBase {
             const asset = assets[i]
             if (!asset)
                 continue
-            const assetStr = asset.toString()
-            this.assets.set(assetStr, new AssetVolumesAccumulator(assetStr, i, ts))
-            this.tokens.set(encodeAssetContractId(asset, network), assetStr)
+            this.assets.set(asset, new AssetVolumesAccumulator(asset, i, ts))
+            this.tokens.set(encodeAssetContractId(asset, network), asset)
         }
     }
 

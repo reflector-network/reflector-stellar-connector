@@ -1,4 +1,5 @@
 /*eslint-disable no-undef */
+const RpcConnector = require('../src/rpc-connector')
 const TxCache = require('../src/cache')
 
 //Mocks
@@ -25,7 +26,9 @@ function createMockRpcConnector() {
         fetchTransactions: jest.fn((from, to, cb) => {
             cb({txHash: 'tx1', createdAt: 1000, ledger: 1})
             return Promise.resolve()
-        })
+        }),
+        simulateTransaction: jest.fn().mockResolvedValue([8]),
+        network: 'testnet'
     }
 }
 
@@ -45,7 +48,7 @@ describe('TxCache', () => {
 
     test('constructor initializes properties', () => {
         const rpc = createMockRpcConnector()
-        const cache = new TxCache(rpc, 'testnet', 60, 10)
+        const cache = new TxCache(rpc, 60, 10)
         expect(cache.size).toBe(10)
         expect(cache.period).toBe(60)
         expect(cache.network).toBe('testnet')
@@ -56,7 +59,7 @@ describe('TxCache', () => {
 
     test('addTx adds transaction and updates lastCachedLedger', () => {
         mockNormalizeTimestamp.mockReturnValue(60)
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
+        const cache = new TxCache(createMockRpcConnector(), 60, 10)
         cache.__ensureTimestampData = jest.fn().mockReturnValue({
             trades: [],
             poolsData: new Map(),
@@ -70,7 +73,7 @@ describe('TxCache', () => {
 
     test('addTx does not process already processed tx', () => {
         mockNormalizeTimestamp.mockReturnValue(60)
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
+        const cache = new TxCache(createMockRpcConnector(), 60, 10)
         const tsData = {
             trades: [],
             poolsData: new Map(),
@@ -83,7 +86,7 @@ describe('TxCache', () => {
     })
 
     test('addTxToPeriod updates trades and ledgers', () => {
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
+        const cache = new TxCache(createMockRpcConnector(), 60, 10)
         const tsData = {
             trades: [],
             poolsData: new Map(),
@@ -101,7 +104,7 @@ describe('TxCache', () => {
     })
 
     test('getTradesForPeriod returns trades in range', () => {
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
+        const cache = new TxCache(createMockRpcConnector(), 60, 10)
         cache.timestampData.set(0, {trades: [{amountBought: 1n}], poolData: new Map()})
         cache.timestampData.set(60, {trades: [{amountBought: 2n}], poolData: new Map()})
         const trades = cache.getTradesForPeriod(0, 120)
@@ -109,7 +112,7 @@ describe('TxCache', () => {
     })
 
     test('getPoolsDataForPeriod returns pools data in range', () => {
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
+        const cache = new TxCache(createMockRpcConnector(), 60, 10)
         const poolsData1 = new Map([['id1', {tokens: ['A'], reserves: [1n]}]])
         const poolsData2 = new Map([['id2', {tokens: ['B'], reserves: [2n]}]])
         cache.timestampData.set(0, {trades: [], poolData: poolsData1})
@@ -120,7 +123,7 @@ describe('TxCache', () => {
 
     test('updateCache calls rpcConnector methods and evicts expired', async () => {
         const rpc = createMockRpcConnector()
-        const cache = new TxCache(rpc, 'testnet', 60, 1)
+        const cache = new TxCache(rpc, 60, 1)
         cache.__processPoolData = jest.fn()
         cache.__evictExpired = jest.fn()
         const poolContracts = new Map([['id', createMockPoolProvider()]])
@@ -133,7 +136,7 @@ describe('TxCache', () => {
     })
 
     test('__evictExpired removes old entries', () => {
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 1)
+        const cache = new TxCache(createMockRpcConnector(), 60, 1)
         cache.timestampData.set(0, {})
         cache.timestampData.set(60, {})
         cache.timestampData.set(120, {})
@@ -142,7 +145,7 @@ describe('TxCache', () => {
     })
 
     test('__ensureTimestampData creates new entry if missing', () => {
-        const cache = new TxCache(createMockRpcConnector(), 'testnet', 60, 10)
+        const cache = new TxCache(createMockRpcConnector(), 60, 10)
         const tsData = cache.__ensureTimestampData(123)
         expect(tsData.trades).toEqual([])
         expect(tsData.poolData instanceof Map).toBe(true)
@@ -151,4 +154,12 @@ describe('TxCache', () => {
         expect(tsData.ledgers.max).toBe(0)
         expect(cache.timestampData.get(123)).toBe(tsData)
     })
+
+
+    test('should simulate transaction', async () => {
+        const cache = new TxCache(createMockRpcConnector())
+        await cache.updateTokenMeta(['CBQSUF57OYX4RIMCZV62DKN6JFOTEKPHIZASMJYOUOCNHGNG2P3XQLSE'], 'GDVZHC625I6YJRA5VM4UQWH4FYOFBY3HNLC2TCP5GQEFBPU7ZWUGAH3U')
+
+        expect(cache.tokensMeta.get('CBQSUF57OYX4RIMCZV62DKN6JFOTEKPHIZASMJYOUOCNHGNG2P3XQLSE')).toEqual({decimals: 8})
+    }, 300000)
 })

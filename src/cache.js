@@ -1,3 +1,4 @@
+const {StrKey} = require('@stellar/stellar-sdk')
 const {xdrParseResult} = require('./dex/meta-processor')
 const {normalizeTimestamp} = require('./utils')
 
@@ -12,16 +13,18 @@ const {normalizeTimestamp} = require('./utils')
 class TxCache {
     /**
      * @param {RpcConnector} rpcConnector - RPC connector instance
-     * @param {string} network - Network passphrase
      * @param {number} period - Period in seconds for grouping transactions
      * @param {number} cacheSize - Number of periods to keep in cache
      */
-    constructor(rpcConnector, network, period = 60, cacheSize = 16) {
+    constructor(rpcConnector, period = 60, cacheSize = 16) {
         this.size = cacheSize
         this.period = period
-        this.network = network
         this.rpcConnector = rpcConnector
         this.worker(normalizeTimestamp(Date.now(), this.period * 1000))
+    }
+
+    get network() {
+        return this.rpcConnector.network
     }
 
     async worker(targetTimestamp) {
@@ -89,6 +92,10 @@ class TxCache {
      * @type {{timestamp: number, poolData: Map<string, {key: string, xdr: string, lastModifiedLedger: number}>}}
      */
     pendingPoolData = null
+    /**
+     * @type {Map<string, {decimals: number}>}
+     */
+    tokensMeta = new Map()
 
     /**
      * @param {TransactionInfo} tx - transaction info object
@@ -163,6 +170,45 @@ class TxCache {
         }
         return result
     }
+
+
+    /**
+     * Update tokens metadata in cache by loading it from the blockchain
+     * @param {string[]} assets - List of asset contract IDs to update metadata for
+     * @param {string} accountId - Account ID to use for simulating transactions (default is the system account from Reflector pubnet cluster)
+     * @return {Promise<void>}
+     */
+    async updateTokenMeta(assets, accountId = "GDLMOS3LF2CRRFCWDJ6TX3YIEYBBTZGAF3BSSEXOXFZWYHSCOHT6DRFX") {
+        if (!accountId)
+            return
+        const now = Date.now()
+        //find all tokens that are not loaded yet, or that need to be retried due to previous failed attempt (with 1 hour cooldown)
+        const tokensToLoad = assets
+            .filter(a => StrKey.isValidContract(a))
+            .filter(a => !this.tokensMeta.has(a)
+                || now - this.tokensMeta.get(a).failedAt > 60 * 60 * 1000)
+        if (tokensToLoad.length === 0)
+            return
+        const requests = []
+        for (const token of tokensToLoad) {
+            const request = this.rpcConnector.simulateTransaction(accountId, {
+                function: 'decimals',
+                contract: token,
+                args: []
+            }).then(result => {
+                const res = Number(result[0])
+                if (isNaN(res) || res < 0 || res > 255)
+                    throw new Error(`Invalid decimals value for token ${token}: ${result[0]}`)
+                this.tokensMeta.set(token, {decimals: res})
+            }).catch(err => {
+                console.error({msg: 'Error loading token decimals', token, err})
+                this.tokensMeta.set(token, {failedAt: now}) //set empty meta to avoid repeated failed attempts
+            })
+            requests.push(request)
+        }
+        await Promise.all(requests)
+    }
+
     /**
      * @param {number} period - Period in seconds
      * @param {number} limit - Number of periods to fetch
@@ -197,7 +243,7 @@ class TxCache {
             if (!provider)
                 continue //unknown contract - skip
             //decode pool instance data
-            const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, this.network) || {}
+            const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, this.network, this.tokensMeta) || {}
             if (!reserves || !tokens)
                 continue //invalid or unsupported pool - skip
             //get pool last modified ledger

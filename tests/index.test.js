@@ -46,7 +46,6 @@ describe('StellarProvider', () => {
     test('init sets up connector, network, cache', async () => {
         await provider.init({rpcUrls: ['url1', 'url2'], network: 'testnet'})
         expect(provider.connector).toBeInstanceOf(RpcConnector)
-        expect(provider.network).toBe('testnet')
         expect(provider.cache).toBeInstanceOf(TxCache)
     })
 

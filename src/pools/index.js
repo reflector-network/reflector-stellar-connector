@@ -52,12 +52,13 @@ function getPoolsData(cache, baseAsset, assets, network, from, period, limit) {
  * Load pools reserves data for the specified base asset and assets
  * @param {string} baseAsset - base asset to aggregate pools data against
  * @param {string[]} assets - list of assets to aggregate pools data for
+ * @param {string} network - network passphrase
  * @return {Promise<Map<string, PoolProviderBase>>} - list of pool contracts with their providers
  */
-async function getPoolContracts(baseAsset, assets) {
+async function getPoolContracts(baseAsset, assets, network) {
     const loadPoolsPromises = []
     for (const provider of poolProviders) {
-        loadPoolsPromises.push(loadSingleProviderData(provider, baseAsset, assets))
+        loadPoolsPromises.push(loadSingleProviderData(provider, baseAsset, assets, network))
     }
     const providers = await Promise.all(loadPoolsPromises)
     let result = new Map()
@@ -71,11 +72,12 @@ async function getPoolContracts(baseAsset, assets) {
  * @param {PoolProviderBase} provider - pool provider instance
  * @param {string} baseAsset - base asset to aggregate pools data against
  * @param {string[]} assets - list of assets to aggregate pools data for
+ * @param {string} network - network passphrase
  * @return {Promise<Map<string, PoolProviderBase>>} - list of pool contracts with their providers
  */
-async function loadSingleProviderData(provider, baseAsset, assets) {
+async function loadSingleProviderData(provider, baseAsset, assets, network) {
     try {
-        const poolAddresses = await provider.getTargetPools(baseAsset, assets)
+        const poolAddresses = await provider.getTargetPools(baseAsset, assets, network)
         const result = new Map()
         for (const address of poolAddresses) {
             result.set(address, provider)

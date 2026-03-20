@@ -36,14 +36,14 @@ class StellarProvider {
     }
 
     get network() {
-        return this.connector.networkPassphrase
+        return this.connector.network
     }
 
     /**
      * Aggregate trades and prices
      * @param {{
-     *  baseAsset: {type: number, code: string},
-     *  assets: {type: number, code: string}[],
+     *  baseAsset: string,
+     *  assets: string[],
      *  from: number,
      *  period: number,
      *  count: number,
@@ -52,17 +52,15 @@ class StellarProvider {
      * @return {[{price: BigInt, ts: number, type: string}][]}
      */
     async getPriceData({baseAsset, assets, from, period, count, simSource}) {
-        const baseAssetCode = baseAsset.code
-        const assetCodes = assets.map(a => a.code)
         //load pool contracts for the specified assets
-        const poolContracts = await getPoolContracts(baseAssetCode, assetCodes)
+        const poolContracts = await getPoolContracts(baseAsset, assets, this.network)
         //update cache with tokens metadata
-        await this.cache.updateTokenMeta([baseAssetCode, ...assetCodes], simSource)
+        await this.cache.updateTokenMeta([baseAsset, ...assets], simSource)
         //update cache with recent transactions and pools data
         await this.cache.updateCache(period, count, poolContracts)
 
-        const tradesData = getDexData(this.cache, baseAssetCode, assetCodes, this.network, from, period, count)
-        const poolsData = getPoolsData(this.cache, baseAssetCode, assetCodes, this.network, from, period, count)
+        const tradesData = getDexData(this.cache, baseAsset, assets, this.network, from, period, count)
+        const poolsData = getPoolsData(this.cache, baseAsset, assets, this.network, from, period, count)
 
         const data = Array.from({length: count})
             .map(() => Array.from({length: assets.length})

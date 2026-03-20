@@ -243,7 +243,7 @@ class TxCache {
             if (!provider)
                 continue //unknown contract - skip
             //decode pool instance data
-            const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, this.network, this.tokensMeta) || {}
+            const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, contractId, this.network, this.tokensMeta) || {}
             if (!reserves || !tokens)
                 continue //invalid or unsupported pool - skip
             //get pool last modified ledger

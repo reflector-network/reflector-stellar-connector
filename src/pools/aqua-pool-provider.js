@@ -27,13 +27,13 @@ class AquaPoolProvider extends PoolProviderBase {
                 }
                 if (pool.swap_killed
                     || !type
-                    || pool.tokens_str.length !== 2
+                    || pool.tokens_addresses.length !== 2
                 ) //skip pools that are killed, unsupported types or with more than 2 tokens
                     return null
 
                 return ({
                     address: pool.address,
-                    assets: pool.tokens_str,
+                    assets: pool.tokens_addresses,
                     type
                 })
             }).filter(value => !!value)

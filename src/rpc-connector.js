@@ -21,11 +21,11 @@ class RpcConnector {
     /**
      * Create RPC connector instance
      * @param {string[]} rpcUrls - URLs of the RPC servers with enabled `getTransactions` and `getLedgerEntries` endpoints
-     * @param {string} networkPassphrase - Network passphrase
+     * @param {string} network - Network passphrase
      */
-    constructor(rpcUrls, networkPassphrase) {
+    constructor(rpcUrls, network) {
         this.rpcUrls = rpcUrls
-        this.networkPassphrase = networkPassphrase
+        this.network = network
     }
 
     /**
@@ -38,7 +38,7 @@ class RpcConnector {
      * @type {string}
      * @readonly
      */
-    networkPassphrase
+    network
 
     /**
      * @param {number} from - Range lower bound ledger (inclusive)
@@ -173,7 +173,7 @@ class RpcConnector {
      */
     async simulateTransaction(source, invocationOp) {
         const options = {
-            networkPassphrase: this.networkPassphrase,
+            networkPassphrase: this.network,
             timebounds: {
                 minTime: 0,
                 maxTime: 0

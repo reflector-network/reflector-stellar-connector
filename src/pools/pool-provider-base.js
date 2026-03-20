@@ -42,15 +42,15 @@ class PoolProviderBase {
             const tokens = assets.map(a => encodeAssetContractId(a, network))
             const getQuoteTokenFn = (pool) => {
                 if (!pool.type //check if pool has type
-                || !pool.tokens_addresses //check if pool has tokens_addresses
-                || pool.tokens_addresses.length !== 2 //check for 2 assets
-                || new Set(pool.tokens_addresses).size !== 2 //check for duplicates
+                || !pool.assets //check if pool has assets
+                || pool.assets.length !== 2 //check for 2 assets
+                || new Set(pool.assets).size !== 2 //check for duplicates
                 ) {
-                    console.warn({msg: 'Skipping pool with invalid data', poolId: pool.address, type: pool.type, assets: pool.tokens_addresses})
+                    console.warn({msg: 'Skipping pool with invalid data', poolId: pool.address, type: pool.type, assets: pool.assets})
                     return null
                 }
-                const poolQuoteToken = pool.tokens_addresses.find(a => a !== baseToken)
-                if (!(pool.tokens_addresses.includes(baseToken) && tokens.includes(poolQuoteToken))) {
+                const poolQuoteToken = pool.assets.find(a => a !== baseToken)
+                if (!(pool.assets.includes(baseToken) && tokens.includes(poolQuoteToken))) {
                     return null
                 }
                 return poolQuoteToken

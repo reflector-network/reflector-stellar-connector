@@ -25,7 +25,7 @@ const poolProviders = [
  * @param {number} limit - Number of periods to aggregate
  * @return {Promise<[AssetVolumesAccumulator[]]>} - Aggregated pools data for each period, but only the last period is filled with data
  */
-function getPoolsData(cache, baseAsset, assets, network, from, period, limit) {
+function getPoolVolumes(cache, baseAsset, assets, network, from, period, limit) {
     try {
         //prepare results
         const results = []
@@ -33,7 +33,7 @@ function getPoolsData(cache, baseAsset, assets, network, from, period, limit) {
             const periodFrom = from + period * i
             const poolsDataAggregator = new PoolsDataAggregator(baseAsset, assets, network, periodFrom)
             //retrieve pools data for current period
-            const poolsForPeriod = cache.getPoolsDataForPeriod(periodFrom, periodFrom + period)
+            const poolsForPeriod = cache.getPoolVolumesForPeriod(periodFrom, periodFrom + period)
             //accumulate pools data
             poolsDataAggregator.processTokenReserves(poolsForPeriod)
             //aggregate volumes
@@ -91,5 +91,5 @@ async function loadSingleProviderData(provider, baseAsset, assets, network) {
 
 module.exports = {
     getPoolContracts,
-    getPoolsData
+    getPoolVolumes
 }

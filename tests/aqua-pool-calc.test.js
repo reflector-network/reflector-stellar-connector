@@ -20,7 +20,7 @@ function spotPriceLinearFee(balances, idxIn = 0, A = 1500n, feeBp = 1n) {
     return price * feeKoef
 }
 
-describe('Aqua Pool Provider', () => {
+describe.skip('Aqua Pool Provider', () => {
     it('should calculate the correct price', async () => {
         const response = await fetch('https://amm-api.aqua.network/pools/?size=500')
         const data = await response.json()

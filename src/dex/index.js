@@ -15,9 +15,9 @@ const DexTradesAggregator = require('./dex-trades-aggregator')
  * @param {number} from - Start timestamp for the aggregation period
  * @param {number} period - Length of each aggregation period in seconds
  * @param {number} limit - Number of aggregation periods to fetch
- * @return {[AssetVolumesAccumulator[]]} - Aggregated trades data for each period
+ * @return {{volumes: BigInt, quoteVolume: BigInt}[]} - Aggregated trades data for each period
  */
-function getDexData(cache, baseAsset, assets, network, from, period, limit) {
+function getDexVolumes(cache, baseAsset, assets, network, from, period, limit) {
     try {
         //prepare results
         const results = []
@@ -41,5 +41,5 @@ function getDexData(cache, baseAsset, assets, network, from, period, limit) {
 }
 
 module.exports = {
-    getDexData
+    getDexVolumes
 }

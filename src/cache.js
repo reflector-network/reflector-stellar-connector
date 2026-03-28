@@ -159,7 +159,7 @@ class TxCache {
      * @param {number} to
      * @return {{tokens: string[], reserves: BigInt[]}[]}
      */
-    getPoolsDataForPeriod(from, to) {
+    getPoolVolumesForPeriod(from, to) {
         const result = []
         //go through all timestamps in the range and collect pool data from the latest one
         for (let ts = from; ts < to; ts += this.period) {

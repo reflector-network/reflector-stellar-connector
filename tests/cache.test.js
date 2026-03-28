@@ -111,13 +111,13 @@ describe('TxCache', () => {
         expect(trades).toEqual([{amountBought: 1n}, {amountBought: 2n}])
     })
 
-    test('getPoolsDataForPeriod returns pools data in range', () => {
+    test('getPoolVolumesForPeriod returns pools data in range', () => {
         const cache = new TxCache(createMockRpcConnector(), 60, 10)
         const poolsData1 = new Map([['id1', {tokens: ['A'], reserves: [1n]}]])
         const poolsData2 = new Map([['id2', {tokens: ['B'], reserves: [2n]}]])
         cache.timestampData.set(0, {trades: [], poolData: poolsData1})
         cache.timestampData.set(60, {trades: [], poolData: poolsData2})
-        const pools = cache.getPoolsDataForPeriod(0, 120)
+        const pools = cache.getPoolVolumesForPeriod(0, 120)
         expect(pools).toEqual([{tokens: ['A'], reserves: [1n]}, {tokens: ['B'], reserves: [2n]}])
     })
 

@@ -77,7 +77,7 @@ class PoolProviderBase {
      * @protected
      */
     async __loadPools() {
-        throw new Error("Abstract method __getPoolsData must be implemented in derived class")
+        throw new Error("Abstract method __loadPools must be implemented in derived class")
     }
 
 

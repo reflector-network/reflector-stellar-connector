@@ -17,6 +17,8 @@ function generateInstanceLedgerKey(contractId) {
     )
 }
 
+const maxLedgersPerRequest = 200
+
 class RpcConnector {
     /**
      * Create RPC connector instance
@@ -62,7 +64,7 @@ class RpcConnector {
             return res.cursor //continue processing transactions
         }
 
-        const limit = 200
+        const limit = maxLedgersPerRequest
         let cursor = undefined
         do {
             const params = cursor ?
@@ -76,30 +78,29 @@ class RpcConnector {
     /**
      * @param {number} lastCachedLedger - Last cached ledger sequence
      * @param {number} period - Period in seconds
-     * @param {number} total - Number of periods to fetch
-     * @param {number} rangeLimit - Number of ranges to return
+     * @param {number} periodCount - Number of periods to fetch
+     * @param {number} rangeLimit - Max number of ranges to return
      * @return {Promise<{from: number, to: number}[]>}
      */
-    async generateLedgerRanges(lastCachedLedger, period, total, rangeLimit) {
+    async generateLedgerRanges(lastCachedLedger, period, periodCount, rangeLimit) {
         const {secondsPerLedger, latestLedger} = await this.getLedgerInfo()
         //guess first ledger to load
-        let firstLedgerToLoad = latestLedger - Math.ceil(period / secondsPerLedger) * total
-        if (lastCachedLedger > firstLedgerToLoad) {
+        let firstLedgerToLoad = latestLedger - Math.ceil(period / secondsPerLedger) * periodCount
+        if (lastCachedLedger > firstLedgerToLoad)
             firstLedgerToLoad = lastCachedLedger + 1
-        }
-        //determine range size
-        const rangeSize = Math.ceil((latestLedger - firstLedgerToLoad) / rangeLimit)
-        //init result array
-        const ranges = new Array(rangeLimit)
-        //generate ranges
+        if (latestLedger - firstLedgerToLoad <= 0)
+            return []
+        const ranges = []
+        let from = firstLedgerToLoad
         for (let i = 0; i < rangeLimit; i++) {
-            const from = firstLedgerToLoad + rangeSize * i
-            const to = from + rangeSize - 1
-            ranges[i] = {from, to}
+            if (from >= latestLedger)
+                break
+            const to = Math.min(from + maxLedgersPerRequest - 1, latestLedger - 1)
+            ranges.push({from, to})
+            if (to - from + 1 < maxLedgersPerRequest) //range wasn't full — totalLedgerToLoad exhausted
+                break
+            from = to + 1
         }
-        //set upper boundary for the last range to overcome possible rounding issues
-        //if response from the server is null, the loading process will crash. To avoid this, we subtract 1 from the last range
-        ranges[rangeLimit - 1].to = latestLedger - 1
         return ranges
     }
 

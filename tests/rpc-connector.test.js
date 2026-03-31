@@ -71,40 +71,44 @@ describe('RpcConnector.loadContractInstances', () => {
             jest.clearAllMocks()
         })
 
-        it('should generate correct ledger ranges', async () => {
+        it('should split into rangeLimit ranges', async () => {
             connector.getLedgerInfo = jest.fn().mockResolvedValue({
                 secondsPerLedger: 5,
                 latestLedger: 1000
             })
-            //firstLedgerToLoad = 1000 - ceil(50/5)*2 = 980, lastCachedLedger=900 < 980 → totalLedgerToLoad=20 < 200 → 1 range
+            //firstLedgerToLoad = 1000 - ceil(50/5)*2 = 980, rangeSize=ceil(20/2)=10
+            //range0=[980,989], range1=[990,999]
             const ranges = await connector.generateLedgerRanges(900, 50, 2, 2)
-            expect(ranges).toHaveLength(1)
-            expect(ranges[0].from).toBe(980)
-            expect(ranges[0].to).toBe(999)
+            expect(ranges).toHaveLength(2)
+            expect(ranges[0]).toEqual({from: 980, to: 989})
+            expect(ranges[1]).toEqual({from: 990, to: 999})
         })
 
-        it('should produce multiple ranges when totalLedgerToLoad exceeds maxLedgersPerRequest', async () => {
+        it('should split into rangeLimit ranges for larger data sets', async () => {
             connector.getLedgerInfo = jest.fn().mockResolvedValue({
                 secondsPerLedger: 5,
                 latestLedger: 1000
             })
-            //firstLedgerToLoad = 1000 - ceil(600/5)*2 = 1000 - 240 = 760; totalLedgerToLoad=240 > 200
-            //range1=[760,959] full (200), range2=[960,999] partial (40) → 2 ranges
+            //firstLedgerToLoad = 1000 - ceil(600/5)*2 = 760, rangeSize=ceil(240/3)=80
+            //range0=[760,839], range1=[840,919], range2=[920,999]
             const ranges = await connector.generateLedgerRanges(0, 600, 2, 3)
-            expect(ranges).toHaveLength(2)
-            expect(ranges[0]).toEqual({from: 760, to: 959})
-            expect(ranges[1]).toEqual({from: 960, to: 999})
+            expect(ranges).toHaveLength(3)
+            expect(ranges[0]).toEqual({from: 760, to: 839})
+            expect(ranges[1]).toEqual({from: 840, to: 919})
+            expect(ranges[2]).toEqual({from: 920, to: 999})
         })
 
-        it('should handle lastCachedLedger less than firstLedgerToLoad', async () => {
+        it('should filter out invalid ranges when data is sparse', async () => {
             connector.getLedgerInfo = jest.fn().mockResolvedValue({
                 secondsPerLedger: 10,
                 latestLedger: 100
             })
-            //firstLedgerToLoad = 100 - ceil(20/10)*2 = 96, lastCachedLedger=10 < 96 → totalLedgerToLoad=4 < 200 → 1 range
+            //firstLedgerToLoad = 100 - ceil(20/10)*2 = 96, rangeSize=ceil(4/3)=2
+            //range0=[96,97], range1=[98,99], range2=[100,99] → invalid, filtered out
             const ranges = await connector.generateLedgerRanges(10, 20, 2, 3)
-            expect(ranges).toHaveLength(1)
-            expect(ranges[0].to).toBe(99)
+            expect(ranges).toHaveLength(2)
+            expect(ranges[0]).toEqual({from: 96, to: 97})
+            expect(ranges[1]).toEqual({from: 98, to: 99})
         })
     })
 

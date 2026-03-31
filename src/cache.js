@@ -5,6 +5,7 @@ const {normalizeTimestamp} = require('./utils')
 /**
  * @typedef {import('./rpc-connector')} RpcConnector
  * @typedef {import('./pools/pool-provider-base')} PoolProviderBase
+ * @typedef {import('./dex/meta-processor').Trade} Trade
  */
 
 /**
@@ -98,45 +99,29 @@ class TxCache {
     tokensMeta = new Map()
 
     /**
-     * @param {TransactionInfo} tx - transaction info object
+     * @param {Map<number, {timestamp: number, txs:[{txHash: string, trades: Trade[]}] }>} txData - ledger data
      */
-    addTx(tx) {
-        //normalize timestamp
-        const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
-
-        //get or create timestamp data
-        const tsTransactions = this.__ensureTimestampData(txTimestamp)
-        if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
-            return
-
-        //try get trades from the transaction
-        const trades = xdrParseResult(tx)
-
-        this.addTxToPeriod(tx.txHash, trades, txTimestamp, tx.ledger)
-
-        if (tx.ledger > this.lastCachedLedger)
-            this.lastCachedLedger = tx.ledger
-    }
-
-    /**
-     * @param {string} txHash
-     * @param {{amountBought: bigint, amountSold: bigint, assetBought: string, assetSold: string}[]} trades
-     * @param {number} timestamp
-     * @param {number} ledger
-     * @private
-     */
-    addTxToPeriod(txHash, trades, timestamp, ledger) {
-        const tsTransactions = this.__ensureTimestampData(timestamp)
-
-        //mark as processed
-        tsTransactions.processedTxs.add(txHash)
-        //append trades
-        tsTransactions.trades.push(...trades)
-        //add ledgers info
-        if (ledger < tsTransactions.ledgers.min)
-            tsTransactions.ledgers.min = ledger
-        if (ledger > tsTransactions.ledgers.max)
-            tsTransactions.ledgers.max = ledger
+    addTxData(txData) {
+        //iterate over the transaction data
+        for (const [ledger, data] of txData.entries()) {
+            //get or create timestamp data
+            const tsTransactions = this.__ensureTimestampData(data.timestamp)
+            for (const tx of data.txs) {
+                if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
+                    continue
+                //mark as processed
+                tsTransactions.processedTxs.add(tx.txHash)
+                //append trades
+                tsTransactions.trades.push(...tx.trades)
+                //add ledgers info
+                if (ledger < tsTransactions.ledgers.min)
+                    tsTransactions.ledgers.min = ledger
+                if (ledger > tsTransactions.ledgers.max)
+                    tsTransactions.ledgers.max = ledger
+            }
+            if (this.lastCachedLedger < ledger)
+                this.lastCachedLedger = ledger
+        }
     }
 
     /**
@@ -216,16 +201,64 @@ class TxCache {
      * @return {Promise<void>}
      */
     async updateCache(period, limit, poolContracts) {
-        //generate ledger sequence ranges to load transactions
-        const ranges = await this.rpcConnector.generateLedgerRanges(this.lastCachedLedger, period, limit + 1, 3)
-        //load ranges in parallel
-        await Promise.all(ranges.map(range => this.rpcConnector.fetchTransactions(range.from, range.to, tx => this.addTx(tx))))
+
         //update tracked contracts
         this.poolContracts = poolContracts
         //process pending pool data
         this.__processPoolData()
+
+        await this.__processTxData(period, limit)
+
         //clean up unneeded entries from cache
         this.__evictExpired()
+    }
+
+    async __processTxData(period, limit) {
+        //generate ledger sequence ranges to load transactions
+        const ranges = await this.rpcConnector.generateLedgerRanges(this.lastCachedLedger, period, limit + 1, 3)
+        //we need to create temp tx storage to have an ability to remove all data that can have integrity issues
+        const tempTxData = new Map()
+        //function to add transaction data to the temporary map
+        const addToTemp = (tx) => {
+            //normalize timestamp
+            const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
+
+            //get or create timestamp data
+            const tsTransactions = this.__ensureTimestampData(txTimestamp)
+            if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
+                return
+
+            //try get trades from the transaction
+            const trades = xdrParseResult(tx)
+            let ledgerData = tempTxData.get(tx.ledger)
+            if (!ledgerData) {
+                ledgerData = {txs: [], hashes: new Set(), timestamp: txTimestamp}
+                tempTxData.set(tx.ledger, ledgerData)
+            }
+            //push tx and trade data
+            ledgerData.txs.push({trades, hash: tx.txHash})
+            ledgerData.hashes.add(tx.txHash)
+        }
+        //load ranges in parallel
+        const results = await Promise.all(ranges.map(range => this.rpcConnector.fetchTransactions(range.from, range.to, tx => addToTemp(tx))
+            .then(() => ({range}))
+            .catch(err => ({error: err, range}))
+        ))
+
+        //find first error
+        const error = results.filter(r => r.error).sort((a, b) => b.range.from - a.range.from)[0]
+        if (error) {
+            //remove all ledgers that are newer or equal to the failed one, and remove it
+            const ledgers = [...tempTxData.keys()]
+                .sort((a, b) => b - a)
+                .filter(l => error.range.from >= l)
+            for (const ledger of ledgers) {
+                tempTxData.delete(ledger)
+            }
+        }
+
+        //add tx data to cache
+        this.addTxData(tempTxData)
     }
 
     /**

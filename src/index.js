@@ -112,10 +112,10 @@ function normalizeCrossVolumes(volumesData, count, assetCount) {
         //calc price for each asset
         for (let c = 0; c < assetCount; c++) {
             for (let j = 0; j < volumesData.length; j++) {
-                const assetData = volumesData[i][j]?.[c + 1]
+                const assetData = volumesData[j]?.[i]?.[c + 1]
                 //convert to baseAsset volume
                 if (assetData) {
-                    result[i][j][c] = {
+                    result[j][i][c] = {
                         volume: normalizeVolume(assetData.volume),
                         quoteVolume: assetData.quoteVolume
                     }

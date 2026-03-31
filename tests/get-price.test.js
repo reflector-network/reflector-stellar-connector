@@ -20,7 +20,9 @@ describe.skip('get price test', () => {
         const crossAssets = ['XLM', 'yUSDC:GDGTVWSM4MGS4T7Z6W4RPWOCHE2I6RDFCIFZGS3DOA63LWQTRNZNTTFF', 'sUSD:GCHW7CWI7GMIYQYFXMFJNJX5645XGWIINIAEQK3SABQO6CAYL5T7JYIH']
 
         const tf = 60
+        //ts is current timestamp minus timeframe to get completed timestamp
         let ts = normalizeTimestamp(Date.now() / 1000, tf) - tf
+        let count = 15 //first load is 15 to emulate node start
         //eslint-disable-next-line no-constant-condition
         while (true) {
             try {
@@ -29,15 +31,16 @@ describe.skip('get price test', () => {
                     assets,
                     from: ts,
                     period: tf,
-                    count: 1,
+                    count,
                     crossAssets
                 })
                 console.table(assets.map((asset, i) => ({asset, price: (Number(result[0][i][0].price) / Math.pow(10, 14))})))
+                count = 1
             } catch (e) {
                 console.error(e)
             } finally {
                 ts += tf
-                await new Promise(resolve => setTimeout(resolve, ts * 1000 - Date.now() + 15000))
+                await new Promise(resolve => setTimeout(resolve, (ts + tf) * 1000 - Date.now() + 15000))
             }
         }
     }, 30000000)

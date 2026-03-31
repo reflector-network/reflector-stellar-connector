@@ -1,5 +1,6 @@
 const AquaPoolProvider = require('./aqua-pool-provider')
 const PoolsDataAggregator = require('./pools-data-aggregator')
+const StellarLiquidityPoolProvider = require('./stellar-liquidity-pool-provider')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').Asset} Asset
@@ -9,9 +10,11 @@ const PoolsDataAggregator = require('./pools-data-aggregator')
  */
 
 const aquaPoolProvider = new AquaPoolProvider()
+const liquidityPoolProvider = new StellarLiquidityPoolProvider()
 
 const poolProviders = [
-    aquaPoolProvider
+    aquaPoolProvider,
+    liquidityPoolProvider
 ]
 
 /**

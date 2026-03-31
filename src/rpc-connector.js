@@ -1,4 +1,4 @@
-const {xdr, Address, TransactionBuilder, Account, Keypair, scValToNative, Operation} = require('@stellar/stellar-sdk')
+const {xdr, Address, TransactionBuilder, Account, Keypair, scValToNative, Operation, StrKey} = require('@stellar/stellar-sdk')
 const {invokeRpcMethod} = require('./utils')
 
 /**
@@ -16,6 +16,18 @@ function generateInstanceLedgerKey(contractId) {
         })
     )
 }
+
+/**
+ * Generate ledger key for a liquidity pool
+ * @param {string} poolId - hex string
+ * @returns
+ */
+function generateLiquidityPoolKey(poolId) {
+    return xdr.LedgerKey.liquidityPool(
+        new xdr.LedgerKeyLiquidityPool({liquidityPoolId: xdr.PoolId.fromXDR(Buffer.from(poolId, 'hex'))})
+    )
+}
+
 
 const maxLedgersPerRequest = 200
 
@@ -83,25 +95,28 @@ class RpcConnector {
      * @return {Promise<{from: number, to: number}[]>}
      */
     async generateLedgerRanges(lastCachedLedger, period, periodCount, rangeLimit) {
+
         const {secondsPerLedger, latestLedger} = await this.getLedgerInfo()
         //guess first ledger to load
         let firstLedgerToLoad = latestLedger - Math.ceil(period / secondsPerLedger) * periodCount
-        if (lastCachedLedger > firstLedgerToLoad)
+        if (lastCachedLedger > firstLedgerToLoad) {
             firstLedgerToLoad = lastCachedLedger + 1
-        if (latestLedger - firstLedgerToLoad <= 0)
-            return []
-        const ranges = []
-        let from = firstLedgerToLoad
-        for (let i = 0; i < rangeLimit; i++) {
-            if (from >= latestLedger)
-                break
-            const to = Math.min(from + maxLedgersPerRequest - 1, latestLedger - 1)
-            ranges.push({from, to})
-            if (to - from + 1 < maxLedgersPerRequest) //range wasn't full — totalLedgerToLoad exhausted
-                break
-            from = to + 1
         }
-        return ranges
+        //determine range size
+        const rangeSize = Math.ceil((latestLedger - firstLedgerToLoad) / rangeLimit)
+        //init result array
+        const ranges = new Array(rangeLimit)
+        //generate ranges
+        for (let i = 0; i < rangeLimit; i++) {
+            const from = firstLedgerToLoad + rangeSize * i
+            const to = from + rangeSize - 1
+            ranges[i] = {from, to}
+        }
+        //set upper boundary for the last range to overcome possible rounding issues
+        //if response from the server is null, the loading process will crash. To avoid this, we subtract 1 from the last range
+        ranges[rangeLimit - 1].to = latestLedger - 1
+        //filter out invalid ranges where from > to (can happen when totalLedgers < rangeLimit)
+        return ranges.filter(r => r.from <= r.to)
     }
 
     async getLedgerInfo() {
@@ -134,7 +149,10 @@ class RpcConnector {
                     currentChunk = new Map()
                     chunks.push(currentChunk)
                 }
-                currentChunk.set(generateInstanceLedgerKey(contract).toXDR('base64'), contract)
+                if (StrKey.isValidContract(contract))
+                    currentChunk.set(generateInstanceLedgerKey(contract).toXDR('base64'), contract)
+                else
+                    currentChunk.set(generateLiquidityPoolKey(contract).toXDR('base64'), contract)
             }
             return chunks
         }
@@ -142,16 +160,21 @@ class RpcConnector {
         for (let i = 0; i < 3; i++) { //max 3 attempts
             try {
                 const instances = new Map()
+                const promises = []
                 for (const chunk of keyChunks) {
-                    const chunkData = await invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: [...chunk.keys()]})
-                    if (chunkData?.entries) {
-                        chunkData.entries.forEach(entry => {
-                            //map entry to contract ID
-                            const contractId = chunk.get(entry.key)
-                            instances.set(contractId, entry)
+                    const promise = invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: [...chunk.keys()]})
+                        .then(chunkData => {
+                            if (chunkData?.entries) {
+                                chunkData.entries.forEach(entry => {
+                                    //map entry to contract ID
+                                    const contractId = chunk.get(entry.key)
+                                    instances.set(contractId, entry)
+                                })
+                            }
                         })
-                    }
+                    promises.push(promise)
                 }
+                await Promise.all(promises)
                 return instances
             } catch (e) {
                 console.warn({err: e, msg: 'Failed getTransactions request'})

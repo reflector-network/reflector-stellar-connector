@@ -4,7 +4,8 @@
  * @enum {number}
  */
 const PoolType = {
-    AQUA: 'AQUA'
+    AQUA: 'AQUA',
+    STELLAR_LIQUIDITY: 'STELLAR_LIQUIDITY'
 }
 
 module.exports = PoolType

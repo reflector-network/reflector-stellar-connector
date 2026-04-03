@@ -3,10 +3,6 @@ const RpcConnector = require('../src/rpc-connector')
 const TxCache = require('../src/cache')
 
 //Mocks
-const mockNormalizeTimestamp = jest.fn((ts, period) => Math.floor(ts / period) * period)
-jest.mock('../src/utils', () => ({
-    normalizeTimestamp: (...args) => mockNormalizeTimestamp(...args)
-}))
 const mockXdrParseResult = jest.fn(() => [{amountBought: 1n, amountSold: 2n, assetBought: 'A', assetSold: 'B'}])
 jest.mock('../src/dex/meta-processor', () => ({
     xdrParseResult: (...args) => mockXdrParseResult(...args)
@@ -42,13 +38,25 @@ function createMockPoolProvider() {
 }
 
 describe('TxCache', () => {
-    beforeEach(() => {
+    const caches = []
+
+    afterEach(() => {
         jest.clearAllMocks()
+        for (const cache of caches) {
+            cache.dispose()
+        }
+        caches.length = 0
     })
+
+    function createCache(rpc, period, size) {
+        const cache = new TxCache(rpc || createMockRpcConnector(), period, size)
+        caches.push(cache)
+        return cache
+    }
 
     test('constructor initializes properties', () => {
         const rpc = createMockRpcConnector()
-        const cache = new TxCache(rpc, 60, 10)
+        const cache = createCache(rpc, 60, 10)
         expect(cache.size).toBe(10)
         expect(cache.period).toBe(60)
         expect(cache.network).toBe('testnet')
@@ -58,7 +66,7 @@ describe('TxCache', () => {
     })
 
     test('addTxData adds transactions and updates lastCachedLedger', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 10)
+        const cache = createCache(createMockRpcConnector(), 60, 10)
         const tsData = {
             trades: [],
             poolData: new Map(),
@@ -74,7 +82,7 @@ describe('TxCache', () => {
     })
 
     test('addTxData does not process already processed tx', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 10)
+        const cache = createCache(createMockRpcConnector(), 60, 10)
         const tsData = {
             trades: [],
             poolData: new Map(),
@@ -84,11 +92,11 @@ describe('TxCache', () => {
         cache.__ensureTimestampData = jest.fn().mockReturnValue(tsData)
         const txData = new Map([[5, {timestamp: 60, txs: [{txHash: 'tx1', trades: [{amountBought: 1n}]}]}]])
         cache.addTxData(txData)
-        expect(tsData.trades).toEqual([]) // tx was skipped
+        expect(tsData.trades).toEqual([]) //tx was skipped
     })
 
     test('addTxData updates ledger min/max across multiple ledgers', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 10)
+        const cache = createCache(createMockRpcConnector(), 60, 10)
         const tsData = {
             trades: [],
             poolData: new Map(),
@@ -108,7 +116,7 @@ describe('TxCache', () => {
     })
 
     test('getTradesForPeriod returns trades in range', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 10)
+        const cache = createCache(createMockRpcConnector(), 60, 10)
         cache.timestampData.set(0, {trades: [{amountBought: 1n}], poolData: new Map()})
         cache.timestampData.set(60, {trades: [{amountBought: 2n}], poolData: new Map()})
         const trades = cache.getTradesForPeriod(0, 120)
@@ -116,7 +124,7 @@ describe('TxCache', () => {
     })
 
     test('getPoolVolumesForPeriod returns pools data in range', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 10)
+        const cache = createCache(createMockRpcConnector(), 60, 10)
         const poolsData1 = new Map([['id1', {tokens: ['A'], reserves: [1n]}]])
         const poolsData2 = new Map([['id2', {tokens: ['B'], reserves: [2n]}]])
         cache.timestampData.set(0, {trades: [], poolData: poolsData1})
@@ -127,7 +135,7 @@ describe('TxCache', () => {
 
     test('updateCache calls rpcConnector methods and evicts expired', async () => {
         const rpc = createMockRpcConnector()
-        const cache = new TxCache(rpc, 60, 1)
+        const cache = createCache(rpc, 60, 1)
         cache.__processPoolData = jest.fn()
         cache.__evictExpired = jest.fn()
         const poolContracts = new Map([['id', createMockPoolProvider()]])
@@ -140,7 +148,7 @@ describe('TxCache', () => {
     })
 
     test('__evictExpired removes old entries', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 1)
+        const cache = createCache(createMockRpcConnector(), 60, 1)
         cache.timestampData.set(0, {})
         cache.timestampData.set(60, {})
         cache.timestampData.set(120, {})
@@ -149,7 +157,7 @@ describe('TxCache', () => {
     })
 
     test('__ensureTimestampData creates new entry if missing', () => {
-        const cache = new TxCache(createMockRpcConnector(), 60, 10)
+        const cache = createCache(createMockRpcConnector(), 60, 10)
         const tsData = cache.__ensureTimestampData(123)
         expect(tsData.trades).toEqual([])
         expect(tsData.poolData instanceof Map).toBe(true)
@@ -160,8 +168,34 @@ describe('TxCache', () => {
     })
 
 
+    test('dispose clears worker timeout and sets disposed flag', () => {
+        const cache = createCache(createMockRpcConnector(), 60, 10)
+        expect(cache.__workerTimeout).toBeDefined()
+        cache.dispose()
+        expect(cache.__workerTimeout).toBeNull()
+        expect(cache.__disposed).toBe(true)
+    })
+
+    test('dispose prevents worker from rescheduling', async () => {
+        const rpc = createMockRpcConnector()
+        rpc.getLedgerInfo.mockResolvedValue({latestLedgerCloseTime: Math.floor(Date.now() / 1000) + 10})
+        rpc.loadContractInstances.mockResolvedValue(new Map([['id', {xdr: 'xdr', lastModifiedLedgerSeq: 1}]]))
+        const cache = createCache(rpc, 60, 10)
+        cache.dispose()
+        //after dispose, worker's finally block should not set a new timeout
+        expect(cache.__workerTimeout).toBeNull()
+    })
+
+    test('dispose is idempotent', () => {
+        const cache = createCache(createMockRpcConnector(), 60, 10)
+        cache.dispose()
+        cache.dispose() //second call should not throw
+        expect(cache.__disposed).toBe(true)
+        expect(cache.__workerTimeout).toBeNull()
+    })
+
     test('should simulate transaction', async () => {
-        const cache = new TxCache(createMockRpcConnector())
+        const cache = createCache(createMockRpcConnector())
         await cache.updateTokenMeta(['CBQSUF57OYX4RIMCZV62DKN6JFOTEKPHIZASMJYOUOCNHGNG2P3XQLSE'], 'GDVZHC625I6YJRA5VM4UQWH4FYOFBY3HNLC2TCP5GQEFBPU7ZWUGAH3U')
 
         expect(cache.tokensMeta.get('CBQSUF57OYX4RIMCZV62DKN6JFOTEKPHIZASMJYOUOCNHGNG2P3XQLSE')).toEqual({decimals: 8})

@@ -1,5 +1,5 @@
 /*eslint-disable class-methods-use-this */
-const {adjustPrecision, encodeAssetContractId} = require('../utils')
+const {adjustPrecision, encodeAssetContractId, normalizeTimestamp} = require('../utils')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
@@ -68,7 +68,7 @@ class AquaPoolProvider extends PoolProviderBase {
     async getTargetPools(baseAsset, assets, network) {
         try {
             let data = this.__cached
-            const trimmedTs = new Date().getTime() / 60 * 60 * 1000 //trim to hours in order to refresh every 60 minutes
+            const trimmedTs = normalizeTimestamp(Date.now(), 60 * 60 * 1000) //trim to hours in order to refresh every 60 minutes
             if (trimmedTs > this.__lastUpdated) {
                 this.__cached = data = await this.__loadPools()
                 this.__lastUpdated = trimmedTs

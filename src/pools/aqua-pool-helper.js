@@ -116,7 +116,7 @@ function a(initialA, initialATime, futureA, futureATime) {
     //Handle ramping A up or down
     const t1 = futureATime
     const a1 = futureA
-    const now = Math.floor(new Date().getTime() / 1000) + 5 //adding 5 seconds to account for the possible future change
+    const now = Math.floor(Date.now() / 1000) + 5 //adding 5 seconds to account for the possible future change
     if (now >= t1) //when t1 == 0 or block.timestamp >= t1
         return a1
     const a0 = initialA
@@ -183,9 +183,11 @@ function calculatePrice(reserves, stableData) {
     if (amp === 0n) {
         throw new Error('Invalid amplification coefficient')
     }
-    const aDy = calculateDy(0, 1, BigInt(Math.pow(10, 14)), reserves, stableData.fee, amp)
-    const bDy = calculateDy(1, 0, BigInt(Math.pow(10, 14)), reserves, stableData.fee, amp)
-    return (aDy + BigInt(Math.pow(10, 14 * 2)) / bDy) / 2n
+    //10 ^ 14
+    const tenToFourteen = 10n ** 14n
+    const aDy = calculateDy(0, 1, tenToFourteen, reserves, stableData.fee, amp)
+    const bDy = calculateDy(1, 0, tenToFourteen, reserves, stableData.fee, amp)
+    return (aDy + tenToFourteen * tenToFourteen / bDy) / 2n
 }
 
 /**

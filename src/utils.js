@@ -129,10 +129,11 @@ function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
     const diff = targetDigits - digits
 
     if (diff === 0) return value
+    const absDiff = BigInt(Math.abs(diff))
     if (diff > 0) {
-        return value * BigInt(10 ** diff)
+        return value * 10n ** absDiff
     } else {
-        return value / BigInt(10 ** (-diff))
+        return value / 10n ** absDiff
     }
 }
 
@@ -149,12 +150,13 @@ async function invokeRpcMethod(rpcs, method, params = undefined, options = undef
         try {
             const errAggr = []
             for (const rpcUrl of rpcs) {
+                let timeOut = null
                 try {
                 //eslint-disable-next-line prefer-const
                     let {timeout = 15_000, signal} = options || {}
                     if (!signal) {
                         const abortController = new AbortController()
-                        setTimeout(() => abortController.abort(), timeout)
+                        timeOut = setTimeout(() => abortController.abort(), timeout)
                         signal = abortController.signal
                     }
                     const res = await fetch(rpcUrl, {
@@ -174,6 +176,10 @@ async function invokeRpcMethod(rpcs, method, params = undefined, options = undef
                     return data.result
                 } catch (e) {
                     errAggr.push({url: rpcUrl, err: e})
+                } finally {
+                    if (timeOut) {
+                        clearTimeout(timeOut)
+                    }
                 }
             }
             throw new Error('Failed to invoke RPC method on all provided URLs', {cause: errAggr, params, options})

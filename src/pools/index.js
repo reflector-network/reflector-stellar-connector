@@ -29,26 +29,21 @@ const poolProviders = [
  * @return {Promise<[AssetVolumesAccumulator[]]>} - Aggregated pools data for each period, but only the last period is filled with data
  */
 function getPoolVolumes(cache, baseAsset, assets, network, from, period, limit) {
-    try {
-        //prepare results
-        const results = []
-        for (let i = 0; i < limit; i++) {
-            const periodFrom = from + period * i
-            const poolsDataAggregator = new PoolsDataAggregator(baseAsset, assets, network, periodFrom)
-            //retrieve pools data for current period
-            const poolsForPeriod = cache.getPoolVolumesForPeriod(periodFrom, periodFrom + period)
-            //accumulate pools data
-            poolsDataAggregator.processTokenReserves(poolsForPeriod)
-            //aggregate volumes
-            const volumes = poolsDataAggregator.volumes
-            //add to results
-            results.push(volumes)
-        }
-        return results
-    } catch (err) {
-        console.error({msg: 'Error fetching dex data', err})
-        return []
+    //prepare results
+    const results = []
+    for (let i = 0; i < limit; i++) {
+        const periodFrom = from + period * i
+        const poolsDataAggregator = new PoolsDataAggregator(baseAsset, assets, network, periodFrom)
+        //retrieve pools data for current period
+        const poolsForPeriod = cache.getPoolVolumesForPeriod(periodFrom, periodFrom + period)
+        //accumulate pools data
+        poolsDataAggregator.processTokenReserves(poolsForPeriod)
+        //aggregate volumes
+        const volumes = poolsDataAggregator.volumes
+        //add to results
+        results.push(volumes)
     }
+    return results
 }
 
 /**

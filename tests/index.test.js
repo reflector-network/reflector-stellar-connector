@@ -4,7 +4,7 @@ const TxCache = require('../src/cache')
 const RpcConnector = require('../src/rpc-connector')
 const {getPoolContracts, getPoolVolumes} = require('../src/pools')
 const {getDexVolumes} = require('../src/dex')
-const {getVWAP} = require('../src/utils')
+const {getVWAP, scaleValue, TARGET_DECIMALS} = require('../src/utils')
 
 jest.mock('../src/rpc-connector')
 jest.mock('../src/cache')
@@ -15,12 +15,13 @@ jest.mock('../src/pools', () => ({
     getPoolVolumes: jest.fn(),
     getPoolContracts: jest.fn()
 }))
-jest.mock('../src/utils', () => ({
-    convertToStellarAsset: jest.fn(a => a),
-    getVWAP: jest.fn((volume, quoteVolume) => volume && quoteVolume ? 100n : 0n),
-    scaleValue: jest.fn((value, decimals) => value * (10n ** BigInt(decimals))),
-    TARGET_DECIMALS: 14
-}))
+jest.mock('../src/utils', () => {
+    const actual = jest.requireActual('../src/utils')
+    return {
+        ...actual,
+        convertToStellarAsset: jest.fn(a => a)
+    }
+})
 //mock console
 console.debug = jest.fn()
 console.info = jest.fn()
@@ -77,8 +78,10 @@ describe('StellarProvider', () => {
         const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
         expect(result[0]).toHaveLength(2)
-        expect(result[0][0]).toEqual([{price: 100n, ts: 1000, type: 'price'}])
-        expect(result[1][1]).toEqual([{price: 100n, ts: 2000, type: 'price'}])
+        //period 0, USD: dex(5/20) + pool(5/10) => volume=10, quoteVolume=30 => getVWAP(10n, 30n)
+        expect(result[0][0]).toEqual([{price: getVWAP(10n, 30n), ts: 1000, type: 'price'}])
+        //period 1, EUR: dex(30/60) + pool(30/60) => volume=60, quoteVolume=120 => getVWAP(60n, 120n)
+        expect(result[1][1]).toEqual([{price: getVWAP(60n, 120n), ts: 2000, type: 'price'}])
     })
 
     test('getPriceData handles empty data', async () => {
@@ -167,9 +170,6 @@ describe('StellarProvider', () => {
         })
         getPoolVolumes.mockReturnValue([[null]])
 
-        getVWAP.mockReturnValueOnce(5n * 100_000_000_000_000n) //first call: xlmPrice = 5 * 10^14
-        getVWAP.mockReturnValueOnce(100n) //second call: final getPrice
-
         const result = await provider.getPriceData({
             baseAsset: usdcBase,
             assets: [asset],
@@ -179,6 +179,6 @@ describe('StellarProvider', () => {
             crossAssets: ['XLM']
         })
         //price should be non-zero because XLM cross-price provides data
-        expect(result[0][0][0].price).toBe(100n)
+        expect(result[0][0][0].price).toBeGreaterThan(0n)
     })
 })

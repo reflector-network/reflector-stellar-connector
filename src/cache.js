@@ -59,7 +59,8 @@ class TxCache {
             targetTimestamp += this.period * 1000
             const timeout = targetTimestamp - 1000 - Date.now()//run 1 second before the next period
             console.debug({msg: 'Stellar-connector timeout', network: this.network, timeout})
-            this.__workerTimeout = setTimeout(() => this.worker(targetTimestamp), timeout)
+            if (!this.__disposed)
+                this.__workerTimeout = setTimeout(() => this.worker(targetTimestamp), timeout)
         }
     }
 
@@ -328,6 +329,14 @@ class TxCache {
         tsData = {trades: [], poolData: new Map(), processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
         this.timestampData.set(timestamp, tsData)
         return tsData
+    }
+
+    dispose() {
+        if (this.__workerTimeout) {
+            clearTimeout(this.__workerTimeout)
+            this.__workerTimeout = null
+            this.__disposed = true
+        }
     }
 }
 

@@ -18,26 +18,21 @@ const DexTradesAggregator = require('./dex-trades-aggregator')
  * @return {{volumes: BigInt, quoteVolume: BigInt}[]} - Aggregated trades data for each period
  */
 function getDexVolumes(cache, baseAsset, assets, network, from, period, limit) {
-    try {
-        //prepare results
-        const results = []
-        for (let i = 0; i < limit; i++) {
-            const periodFrom = from + period * i
-            const tradesAggregator = new DexTradesAggregator(baseAsset, assets, network, periodFrom)
-            //retrieve trades for current period
-            const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodFrom + period)
-            //accumulate trades
-            tradesAggregator.processPeriodTrades(tradesForPeriod)
-            //aggregate volumes
-            const volumes = tradesAggregator.volumes
-            //add to results
-            results.push(volumes)
-        }
-        return results
-    } catch (err) {
-        console.error({msg: 'Error fetching dex data', err})
-        return []
+    //prepare results
+    const results = []
+    for (let i = 0; i < limit; i++) {
+        const periodFrom = from + period * i
+        const tradesAggregator = new DexTradesAggregator(baseAsset, assets, network, periodFrom)
+        //retrieve trades for current period
+        const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodFrom + period)
+        //accumulate trades
+        tradesAggregator.processPeriodTrades(tradesForPeriod)
+        //aggregate volumes
+        const volumes = tradesAggregator.volumes
+        //add to results
+        results.push(volumes)
     }
+    return results
 }
 
 module.exports = {

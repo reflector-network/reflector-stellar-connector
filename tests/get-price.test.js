@@ -12,7 +12,6 @@ console.debug = jest.fn()
 describe.skip('get price test', () => {
     test('getPriceData', async () => {
 
-        console.table([1, 2])
         const provider = new StellarProvider()
         await provider.init({rpcUrls: ['http://localhost:8003'], network: Networks.PUBLIC})
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'

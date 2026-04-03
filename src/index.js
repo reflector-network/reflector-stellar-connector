@@ -188,6 +188,10 @@ class StellarProvider {
         }
         return data
     }
+
+    dispose() {
+        this.cache.dispose()
+    }
 }
 
 module.exports = StellarProvider

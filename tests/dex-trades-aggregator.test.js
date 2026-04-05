@@ -1,5 +1,5 @@
 /*eslint-disable no-undef */
-const {Asset, xdr} = require('@stellar/stellar-sdk')
+const {xdr} = require('@stellar/stellar-sdk')
 const DexTradesAggregator = require('../src/dex/dex-trades-aggregator')
 const {xdrParseResult} = require('../src/dex/meta-processor')
 

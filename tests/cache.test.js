@@ -1,5 +1,4 @@
 /*eslint-disable no-undef */
-const RpcConnector = require('../src/rpc-connector')
 const TxCache = require('../src/cache')
 
 //Mocks
@@ -176,7 +175,7 @@ describe('TxCache', () => {
         expect(cache.__disposed).toBe(true)
     })
 
-    test('dispose prevents worker from rescheduling', async () => {
+    test('dispose prevents worker from rescheduling', () => {
         const rpc = createMockRpcConnector()
         rpc.getLedgerInfo.mockResolvedValue({latestLedgerCloseTime: Math.floor(Date.now() / 1000) + 10})
         rpc.loadContractInstances.mockResolvedValue(new Map([['id', {xdr: 'xdr', lastModifiedLedgerSeq: 1}]]))

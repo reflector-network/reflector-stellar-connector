@@ -237,7 +237,7 @@ class TxCache {
                 tempTxData.set(tx.ledger, ledgerData)
             }
             //push tx and trade data
-            ledgerData.txs.push({trades, hash: tx.txHash})
+            ledgerData.txs.push({trades, txHash: tx.txHash})
             ledgerData.hashes.add(tx.txHash)
         }
         //load ranges in parallel

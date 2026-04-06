@@ -116,7 +116,7 @@ function a(initialA, initialATime, futureA, futureATime) {
     //Handle ramping A up or down
     const t1 = futureATime
     const a1 = futureA
-    const now = Math.floor(new Date().getTime() / 1000) + 5 //adding 5 seconds to account for the possible future change
+    const now = Math.floor(Date.now() / 1000) + 5 //adding 5 seconds to account for the possible future change
     if (now >= t1) //when t1 == 0 or block.timestamp >= t1
         return a1
     const a0 = initialA
@@ -183,20 +183,21 @@ function calculatePrice(reserves, stableData) {
     if (amp === 0n) {
         throw new Error('Invalid amplification coefficient')
     }
-    const aDy = calculateDy(0, 1, BigInt(Math.pow(10, 14)), reserves, stableData.fee, amp)
-    const bDy = calculateDy(1, 0, BigInt(Math.pow(10, 14)), reserves, stableData.fee, amp)
-    return (aDy + BigInt(Math.pow(10, 14 * 2)) / bDy) / 2n
+    //10 ^ 14
+    const tenToFourteen = 10n ** 14n
+    const aDy = calculateDy(0, 1, tenToFourteen, reserves, stableData.fee, amp)
+    const bDy = calculateDy(1, 0, tenToFourteen, reserves, stableData.fee, amp)
+    return (aDy + tenToFourteen * tenToFourteen / bDy) / 2n
 }
 
 /**
  * Processes aquarius pool contracts
  * @param {ContractDataEntry} contractData - contracts data entries
- * @param {Map<string, string>} quoteTokenIds - quote token contract ids
+ * @param {Map<string, {decimals: number}>} tokenMeta - Metadata for tokens to aggregate pools data for
  * @return {{reserves: BigInt[], tokens: string[], stableData: {initialA: number, initialATime: number, futureA: number, futureATime: number, fee: bigint}}} - reserves array. First element is base asset reserve, second is quote asset reserve.
  */
-function extractAquaPoolData(contractData) {
+function extractAquaPoolData(contractData, tokenMeta) {
     const storage = getAquaPoolContractValues(xdr.LedgerEntryData.fromXDR(contractData, 'base64'), ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
-    const digits = storage.Decimals !== undefined ? storage.Decimals : [DEFAULT_DECIMALS, DEFAULT_DECIMALS]
     const reserves = storage.ReserveA !== undefined
         ? [storage.ReserveA, storage.ReserveB]
         : [storage.Reserves[0], storage.Reserves[1]]
@@ -206,6 +207,17 @@ function extractAquaPoolData(contractData) {
         || new Set(tokens).size !== 2 //not exactly 2 unique tokens
     ) {
         return null //unable to extract reserves
+    }
+
+    let digits = storage.Decimals
+    if (digits === undefined) {
+        digits = tokens.map(t => {
+            const meta = tokenMeta.get(t)
+            return meta ? meta.decimals : DEFAULT_DECIMALS
+        })
+        if (digits.length !== 2 || digits.some(d => isNaN(d))) {
+            return null //unable to determine decimals
+        }
     }
     reserves[0] = adjustPrecision(reserves[0], digits[0])
     reserves[1] = adjustPrecision(reserves[1], digits[1])

@@ -72,33 +72,40 @@ function getNetworkIdHash(networkPassphrase) {
 
 /**
  * Encode ContractId for a given wrapped Stellar classic asset
- * @param {Asset} asset - stellar asset to encode
+ * @param {string} asset - stellar asset code in 'code:issuer' format, or XLM for native, or contract ID for already wrapped assets
  * @param {String} networkPassphrase - network passphrase (e.g. Networks.PUBLIC)
  * @return {String}
  */
 function encodeAssetContractId(asset, networkPassphrase) {
+    if (StrKey.isValidContract(asset?.toString()))
+        return asset.toString()
+    return encodeXDRAssetToContractId(convertToStellarAsset(asset).toXDRObject(), networkPassphrase)
+}
+
+function encodeXDRAssetToContractId(xdrAsset, networkPassphrase) {
     const assetContractId = new xdr.HashIdPreimageContractId({
         networkId: getNetworkIdHash(networkPassphrase),
-        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(asset.toXDRObject())
+        contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAsset(xdrAsset)
     })
     const preimage = xdr.HashIdPreimage.envelopeTypeContractId(assetContractId)
     return StrKey.encodeContract(hash(preimage.toXDR()))
 }
 
+
 /**
  * Convert asset descriptor to Stellar Asset
- * @param {{type:number, code:string}} asset - oracle asset object. Code should be in 'code:issuer' format.
+ * @param {string} asset - oracle asset object. Code should be in 'code:issuer' format.
  * @return {Asset|null}
  */
 function convertToStellarAsset(asset) {
     const [assetCode, issuer] = asset.split(':')
     if (!assetCode)
         throw new Error(`Asset code is required`)
-    if (assetCode === 'XLM' && !issuer)
+    if ((assetCode === 'XLM' || assetCode === 'native') && !issuer)
         return Asset.native()
     else if (assetCode && issuer)
         return new Asset(assetCode, issuer)
-    throw new Error(`Invalid asset code format: ${asset.code}. Expected 'code:issuer' format.`)
+    throw new Error(`Invalid asset code format: ${asset}. Expected 'code:issuer' format.`)
 }
 
 /**
@@ -122,10 +129,11 @@ function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
     const diff = targetDigits - digits
 
     if (diff === 0) return value
+    const absDiff = BigInt(Math.abs(diff))
     if (diff > 0) {
-        return value * BigInt(10 ** diff)
+        return value * 10n ** absDiff
     } else {
-        return value / BigInt(10 ** (-diff))
+        return value / 10n ** absDiff
     }
 }
 
@@ -137,40 +145,50 @@ function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
  * @param {{[timeout], [signal]}} [options]
  * @return {Promise<any>}
  */
-function invokeRpcMethod(rpcs, method, params = undefined, options = undefined) {
-    for (const rpcUrl of rpcs) {
-        for (let i = 0; i < 3; i++) { //max 3 attempts
-            try {
-                let {timeout = 15_000, signal} = options || {}
-                if (!signal) {
-                    const abortController = new AbortController()
-                    setTimeout(() => abortController.abort(), timeout)
-                    signal = abortController.signal
-                }
-                const data = {
-                    jsonrpc: '2.0',
-                    id: 8675309,
-                    method,
-                    params
-                }
-                return fetch(rpcUrl, {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    headers: {'Content-Type': 'application/json'},
-                    signal
-                })
-                    .then(res => res.json())
-                    .then(res => {
-                        if (res.error)
-                            throw new Error('RPC error: ' + res.error.message + '\n' + res.error.data)
-                        return res.result
+async function invokeRpcMethod(rpcs, method, params = undefined, options = undefined) {
+    for (let i = 0; i < 3; i++) { //max 3 attempts
+        try {
+            const errAggr = []
+            for (const rpcUrl of rpcs) {
+                let timeOut = null
+                try {
+                //eslint-disable-next-line prefer-const
+                    let {timeout = 15_000, signal} = options || {}
+                    if (!signal) {
+                        const abortController = new AbortController()
+                        timeOut = setTimeout(() => abortController.abort(), timeout)
+                        signal = abortController.signal
+                    }
+                    const res = await fetch(rpcUrl, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            id: 8675309,
+                            method,
+                            params
+                        }),
+                        headers: {'Content-Type': 'application/json'},
+                        signal
                     })
-            } catch (e) {
-                console.warn({err: e, msg: 'Failed RPC request', args: params, rpcUrl})
+                    const data = await res.json()
+                    if (data.error)
+                        throw new Error('RPC error: ' + data.error.message)
+                    return data.result
+                } catch (e) {
+                    errAggr.push({url: rpcUrl, err: e})
+                } finally {
+                    if (timeOut) {
+                        clearTimeout(timeOut)
+                    }
+                }
+            }
+            throw new Error('Failed to invoke RPC method on all provided URLs', {cause: errAggr, params, options})
+        } catch (e) {
+            if (i === 2) {
+                throw e
             }
         }
     }
-    throw new Error('Failed to invoke RPC method on all provided URLs')
 }
 
 module.exports = {
@@ -178,6 +196,7 @@ module.exports = {
     getVWAP,
     normalizeTimestamp,
     encodeAssetContractId,
+    encodeXDRAssetToContractId,
     convertToStellarAsset,
     adjustPrecision,
     scaleValue,

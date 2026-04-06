@@ -85,8 +85,14 @@ function processDexTrade(claimedAtom) {
     }
     if (!res.amountSold || !res.amountBought)
         return null
-    res.assetSold = Asset.fromOperation(value.assetSold()).toString()
-    res.assetBought = Asset.fromOperation(value.assetBought()).toString()
+    const getAssetCode = (asset) => {
+        const assetCode = Asset.fromOperation(asset).toString()
+        if (assetCode === 'native')
+            return 'XLM'
+        return assetCode
+    }
+    res.assetSold = getAssetCode(value.assetSold())
+    res.assetBought = getAssetCode(value.assetBought())
     return res
 }
 

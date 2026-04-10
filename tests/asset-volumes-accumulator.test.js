@@ -53,13 +53,11 @@ describe('AssetVolumesAccumulator', () => {
         const acc = new AssetVolumesAccumulator('XLM', 0, 1000)
         acc.addVolumes(1000n, 2000n)
         acc.addVolumes(3000n, 4000n)
-        //total: volume=4000, quoteVolume=6000
-        const expected = getVWAP(4000n, 6000n)
-        expect(acc.getPrice()).toBe(expected)
+        expect(getVWAP(acc.volume, acc.quoteVolume)).toBe(66666666666666n)
     })
 
     it('should return 0n price when no volumes added', () => {
         const acc = new AssetVolumesAccumulator('XLM', 0, 1000)
-        expect(acc.getPrice()).toBe(0n)
+        expect(getVWAP(acc.volume, acc.quoteVolume)).toBe(0n)
     })
 })

@@ -22,11 +22,16 @@ const TARGET_DECIMALS = 14
  * @returns {BigInt}
  */
 function getVWAP(volume, quoteVolume, decimals = TARGET_DECIMALS) {
-    const preciseVolume = scaleValue(volume, decimals * 2) //multiply decimals by 2 to get correct price
-    const preciseQuoteVolume = scaleValue(quoteVolume, decimals)
-    if (preciseVolume === 0n || preciseQuoteVolume === 0n)
+    if (typeof volume !== 'bigint')
+        throw new Error('volume should be expressed as BigInt')
+    if (typeof quoteVolume !== 'bigint')
+        throw new Error('quoteVolume should be expressed as BigInt')
+    if (typeof decimals !== 'number' || isNaN(decimals))
+        throw new Error('decimals should be expressed as Number')
+    const scaledtotalVolume = volume * (10n ** BigInt(decimals)) //multiply decimals by 10^decimals to get correct price
+    if (quoteVolume === 0n || scaledtotalVolume === 0n)
         return 0n
-    return preciseVolume / preciseQuoteVolume
+    return scaledtotalVolume / quoteVolume
 }
 
 /**

@@ -106,9 +106,9 @@ function get_y(in_idx, out_idx, x, reserves, amp) {
 /**
  * Calculates the current amplification coefficient `A`
  * @param {bigint} initialA - Initial amplification coefficient
- * @param {number} initialATime - Timestamp when the initial amplification coefficient was set
+ * @param {bigint} initialATime - Timestamp when the initial amplification coefficient was set
  * @param {bigint} futureA - Future amplification coefficient
- * @param {number} futureATime - Timestamp when the future amplification coefficient will be set
+ * @param {bigint} futureATime - Timestamp when the future amplification coefficient will be set
  * @return {bigint} The current amplification coefficient
  * @private
  */
@@ -116,7 +116,7 @@ function a(initialA, initialATime, futureA, futureATime) {
     //Handle ramping A up or down
     const t1 = futureATime
     const a1 = futureA
-    const now = Math.floor(Date.now() / 1000) + 5 //adding 5 seconds to account for the possible future change
+    const now = BigInt(Math.floor(Date.now() / 1000) + 5) //adding 5 seconds to account for the possible future change
     if (now >= t1) //when t1 == 0 or block.timestamp >= t1
         return a1
     const a0 = initialA
@@ -194,7 +194,7 @@ function calculatePrice(reserves, stableData) {
  * Processes aquarius pool contracts
  * @param {ContractDataEntry} contractData - contracts data entries
  * @param {Map<string, {decimals: number}>} tokenMeta - Metadata for tokens to aggregate pools data for
- * @return {{reserves: BigInt[], tokens: string[], stableData: {initialA: number, initialATime: number, futureA: number, futureATime: number, fee: bigint}}} - reserves array. First element is base asset reserve, second is quote asset reserve.
+ * @return {{reserves: BigInt[], tokens: string[], stableData: {initialA: bigint, initialATime: bigint, futureA: bigint, futureATime: bigint, fee: bigint}}} - reserves array. First element is base asset reserve, second is quote asset reserve.
  */
 function extractAquaPoolData(contractData, tokenMeta) {
     const storage = getAquaPoolContractValues(xdr.LedgerEntryData.fromXDR(contractData, 'base64'), ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])

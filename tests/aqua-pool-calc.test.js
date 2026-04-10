@@ -20,6 +20,91 @@ function spotPriceLinearFee(balances, idxIn = 0, A = 1500n, feeBp = 1n) {
     return price * feeKoef
 }
 
+describe('calculatePrice with BigInt stableData', () => {
+    const reserves = [1000000000000000000n, 1000000000000000000n] //equal reserves, 18-digit precision
+
+    it('should return a price when futureATime is in the past (early return path)', () => {
+        const pastTimestamp = BigInt(Math.floor(Date.now() / 1000) - 3600) //1 hour ago
+        const stableData = {
+            initialA: 1000n,
+            initialATime: pastTimestamp - 7200n, //3 hours ago
+            futureA: 1500n,
+            futureATime: pastTimestamp, //1 hour ago — triggers early return of futureA
+            fee: 30n
+        }
+        const price = calculatePrice(reserves, stableData)
+        expect(typeof price).toBe('bigint')
+        expect(price).toBeGreaterThan(0n)
+    })
+
+    it('should return a price when A is actively ramping (interpolation path)', () => {
+        const now = BigInt(Math.floor(Date.now() / 1000))
+        const stableData = {
+            initialA: 1000n,
+            initialATime: now - 3600n, //started 1 hour ago
+            futureA: 2000n,
+            futureATime: now + 3600n, //ends 1 hour from now — forces interpolation
+            fee: 30n
+        }
+        const price = calculatePrice(reserves, stableData)
+        expect(typeof price).toBe('bigint')
+        expect(price).toBeGreaterThan(0n)
+    })
+
+    it('should return a price when A is ramping down', () => {
+        const now = BigInt(Math.floor(Date.now() / 1000))
+        const stableData = {
+            initialA: 2000n,
+            initialATime: now - 3600n,
+            futureA: 1000n,
+            futureATime: now + 3600n,
+            fee: 30n
+        }
+        const price = calculatePrice(reserves, stableData)
+        expect(typeof price).toBe('bigint')
+        expect(price).toBeGreaterThan(0n)
+    })
+
+    it('should not throw TypeError when mixing BigInt timestamps with amplification values', () => {
+        const now = BigInt(Math.floor(Date.now() / 1000))
+        const stableData = {
+            initialA: 500n,
+            initialATime: now - 1000n,
+            futureA: 1500n,
+            futureATime: now + 1000n,
+            fee: 1n
+        }
+        //this would throw "Cannot mix BigInt and other types" before the fix
+        expect(() => calculatePrice(reserves, stableData)).not.toThrow()
+    })
+
+    it('should produce consistent prices for equal reserves regardless of A value', () => {
+        const pastTimestamp = BigInt(Math.floor(Date.now() / 1000) - 3600)
+        //with equal reserves, a stable pool should price near 1:1 regardless of A
+        const priceA = calculatePrice(reserves, {
+            initialA: 500n,
+            initialATime: pastTimestamp - 7200n,
+            futureA: 500n,
+            futureATime: pastTimestamp,
+            fee: 0n
+        })
+        const priceB = calculatePrice(reserves, {
+            initialA: 5000n,
+            initialATime: pastTimestamp - 7200n,
+            futureA: 5000n,
+            futureATime: pastTimestamp,
+            fee: 0n
+        })
+        //both prices should be close to 10^14 (1:1 in 14-decimal representation)
+        const target = 10n ** 14n
+        const tolerance = target / 100n //1% tolerance
+        expect(priceA).toBeGreaterThan(target - tolerance)
+        expect(priceA).toBeLessThan(target + tolerance)
+        expect(priceB).toBeGreaterThan(target - tolerance)
+        expect(priceB).toBeLessThan(target + tolerance)
+    })
+})
+
 describe.skip('Aqua Pool Provider', () => {
     it('should calculate the correct price', async () => {
         const response = await fetch('https://amm-api.aqua.network/pools/?size=500')

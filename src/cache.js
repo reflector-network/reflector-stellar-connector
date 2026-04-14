@@ -21,14 +21,17 @@ class TxCache {
         this.size = cacheSize
         this.period = period
         this.rpcConnector = rpcConnector
-        this.worker(normalizeTimestamp(Date.now(), this.period * 1000))
+        this.__worker(normalizeTimestamp(Date.now(), this.period * 1000))
     }
 
     get network() {
         return this.rpcConnector.network
     }
 
-    async worker(targetTimestamp) {
+    /**
+     * @param {number} targetTimestamp - timestamp in ms
+     */
+    async __worker(targetTimestamp) {
         console.info({msg: 'Start stellar-connector pools instance worker', network: this.network, targetTimestamp})
         try {
             let dataTimestamp = 0
@@ -56,11 +59,11 @@ class TxCache {
         } catch (err) {
             console.error({err, msg: 'Error in stellar-connector pools instance', network: this.network})
         } finally {
-            targetTimestamp += this.period * 1000
-            const timeout = targetTimestamp - 1000 - Date.now()//run 1 second before the next period
+            targetTimestamp += this.period * 1000 //period to ms
+            const timeout = targetTimestamp - 1000 - Date.now() //run 1 second before the next period
             console.debug({msg: 'Stellar-connector timeout', network: this.network, timeout})
             if (!this.__disposed)
-                this.__workerTimeout = setTimeout(() => this.worker(targetTimestamp), timeout)
+                this.__workerTimeout = setTimeout(() => this.__worker(targetTimestamp), Math.max(1, timeout))
         }
     }
 

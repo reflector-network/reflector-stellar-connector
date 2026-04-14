@@ -152,7 +152,8 @@ class StellarProvider {
      *  from: number,
      *  period: number,
      *  count: number,
-     *  simSource: string
+     *  simSource: string,
+     *  crossAssets: string[]
      * }} options - Options object
      * @return {[{price: BigInt, ts: number, type: string}][]}
      */

@@ -22,10 +22,6 @@ class AssetVolumesAccumulator {
         this.volume += baseVolume
         this.quoteVolume += quoteVolume
     }
-
-    getPrice() {
-        return getVWAP(this.volume, this.quoteVolume)
-    }
 }
 
 module.exports = AssetVolumesAccumulator

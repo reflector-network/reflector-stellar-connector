@@ -1,37 +1,9 @@
 /*eslint-disable class-methods-use-this */
-const {Asset, getLiquidityPoolId, LiquidityPoolAsset, xdr, StrKey, scValToNative} = require('@stellar/stellar-sdk')
+const {Asset, getLiquidityPoolId, LiquidityPoolAsset, xdr, StrKey} = require('@stellar/stellar-sdk')
 const {adjustPrecision, convertToStellarAsset, DEFAULT_DECIMALS, encodeXDRAssetToContractId} = require('../utils')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
 
-
-/**
- * Returns native storage
- * @param {xdr.LedgerEntryData} contractEntry - contract data entry
- * @param {string[]} [keys] - keys to extract from storage (optional)
- * @returns {object}
- */
-function getAquaPoolContractValues(contractEntry, keys = []) {
-    if (!contractEntry) {
-        throw new Error('Contract entry is required')
-    }
-    if (!Array.isArray(keys)) {
-        throw new Error('Keys should be an array of strings')
-    }
-    const data = contractEntry.value().val().instance()
-    if (!data)
-        return {}
-    const storage = {}
-    const entries = data.storage()
-    for (const entry of entries) {
-        const key = scValToNative(entry.key())
-        if (keys.length > 0 && !keys.includes(key[0])) //key[0] because keys are stored as arrays in Aqua contracts
-            continue
-        const val = scValToNative(entry.val())
-        storage[key] = val
-    }
-    return storage
-}
 
 function extractPoolData(contractData, network) {
     const data =

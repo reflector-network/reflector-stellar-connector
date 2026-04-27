@@ -175,24 +175,33 @@ async function invokeRpcMethod(rpcs, method, params = undefined, options = undef
                         headers: {'Content-Type': 'application/json'},
                         signal
                     })
+                    if (!res.ok) {
+                        throw new Error(`RPC error: ${res.status} ${res.statusText}`)
+                    }
                     const data = await res.json()
                     if (data.error)
                         throw new Error('RPC error: ' + data.error.message)
                     return data.result
                 } catch (e) {
-                    errAggr.push({url: rpcUrl, err: e})
+                    let error = e
+                    if (error.message.indexOf('RPC error: ') === 0) {//cleanup
+                        error = error.message
+                    }
+                    errAggr.push({url: rpcUrl, err: error})
                 } finally {
                     if (timeOut) {
                         clearTimeout(timeOut)
                     }
                 }
             }
-            throw new Error('Failed to invoke RPC method on all provided URLs', {cause: errAggr, params, options})
+            throw new Error('Failed to invoke RPC method on all provided URLs', {cause: {errAggr, params, options}})
         } catch (e) {
             if (i === 2) {
                 throw e
             }
+            console.warn({msg: 'RPC call failed, retrying', method, attempt: i + 1, err: e?.cause?.errAggr || e.message})
         }
+        await new Promise(resolve => setTimeout(resolve, 300))
     }
 }
 

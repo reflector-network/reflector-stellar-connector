@@ -4,9 +4,14 @@ const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
 
+const AQUA_API_HOST = 'amm-api.aqua.network'
+const AQUA_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
+
 class AquaPoolProvider extends PoolProviderBase {
 
     __lastUpdated = 0
+
+    __failedAt = 0
 
     /**
      * @type {{address: string, type: string, assets: string}[]}
@@ -16,11 +21,25 @@ class AquaPoolProvider extends PoolProviderBase {
 
     async __loadPools() {
         const data = []
-        let dataSourceUrl = 'https://amm-api.aqua.network/pools/?size=500'
+        let dataSourceUrl = `https://${AQUA_API_HOST}/pools/?size=500`
         while (dataSourceUrl) {
             const response = await fetch(dataSourceUrl)
                 .then(res => res.json())
-            dataSourceUrl = response.next
+            //validate next URL host to avoid following untrusted redirects
+            if (response.next) {
+                let nextHost = null
+                try {
+                    nextHost = new URL(response.next).host
+                } catch (_) { /* invalid URL */ }
+                if (nextHost !== AQUA_API_HOST) {
+                    console.warn({msg: 'Aquarius API returned untrusted next URL, stopping pagination', next: response.next})
+                    dataSourceUrl = null
+                } else {
+                    dataSourceUrl = response.next
+                }
+            } else {
+                dataSourceUrl = null
+            }
             const parsedData = response.items.map(pool => {
                 let type
                 switch (pool.pool_type) {
@@ -50,6 +69,23 @@ class AquaPoolProvider extends PoolProviderBase {
         return data
     }
 
+    async __maybeRefreshPools() {
+        const now = Date.now()
+        const trimmedTs = normalizeTimestamp(now, 60 * 60 * 1000) //trim to hours in order to refresh every 60 minutes
+        if (trimmedTs <= this.__lastUpdated)
+            return
+        if (this.__failedAt && now - this.__failedAt < AQUA_FAILURE_COOLDOWN_MS)
+            return //within failure cooldown - keep stale cache
+        try {
+            this.__cached = await this.__loadPools()
+            this.__lastUpdated = trimmedTs
+            this.__failedAt = 0
+        } catch (err) {
+            this.__failedAt = now
+            console.error({msg: `Error loading pool list for ${this.constructor.name} provider`, err})
+        }
+    }
+
     /**
      * Get pool type
      * @return {string}
@@ -67,12 +103,10 @@ class AquaPoolProvider extends PoolProviderBase {
      */
     async getTargetPools(baseAsset, assets, network) {
         try {
-            let data = this.__cached
-            const trimmedTs = normalizeTimestamp(Date.now(), 60 * 60 * 1000) //trim to hours in order to refresh every 60 minutes
-            if (trimmedTs > this.__lastUpdated) {
-                this.__cached = data = await this.__loadPools()
-                this.__lastUpdated = trimmedTs
-            }
+            await this.__maybeRefreshPools()
+            const data = this.__cached
+            if (!data)
+                return []
             const baseToken = encodeAssetContractId(baseAsset, network)
             const tokens = assets.map(a => encodeAssetContractId(a, network))
             const getQuoteTokenFn = (pool) => {

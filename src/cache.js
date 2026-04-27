@@ -43,7 +43,7 @@ class TxCache {
                     console.debug({msg: 'Ledger close time', network: this.network, ledgerCloseTime, targetTimestamp})
                     break //we have reached the target timestamp
                 }
-                await new Promise(resolve => setTimeout(resolve, 50))
+                await new Promise(resolve => setTimeout(resolve, 500))
             }
             if (!dataTimestamp) {
                 console.warn({msg: 'Unable to receive ledger close time', targetTimestamp, network: this.network})
@@ -60,7 +60,7 @@ class TxCache {
             console.error({err, msg: 'Error in stellar-connector pools instance', network: this.network})
         } finally {
             targetTimestamp += this.period * 1000 //period to ms
-            const timeout = targetTimestamp - 1000 - Date.now() //run 1 second before the next period
+            const timeout = targetTimestamp - 100 - Date.now() //run 100 milliseconds before the next period
             console.debug({msg: 'Stellar-connector timeout', network: this.network, timeout})
             if (!this.__disposed)
                 this.__workerTimeout = setTimeout(() => this.__worker(targetTimestamp), Math.max(1, timeout))
@@ -82,6 +82,12 @@ class TxCache {
      * @readonly
      */
     lastCachedLedger = 0
+    /**
+     * Largest timestamp currently present in {@link timestampData}. Maintained by {@link __ensureTimestampData}.
+     * @type {number}
+     * @private
+     */
+    __latestTimestamp = 0
     /**
      * Pools data structure: key is the pool contract ID and value are the tokens and their reserves
      * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}>, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
@@ -252,6 +258,7 @@ class TxCache {
         //find first error
         const error = results.filter(r => r.error).sort((a, b) => b.range.from - a.range.from)[0]
         if (error) {
+            console.error({msg: 'Error fetching transactions', error: error.error, range: error.range})
             //remove all ledgers that are newer or equal to the failed one, and remove it
             const ledgers = [...tempTxData.keys()]
                 .sort((a, b) => b - a)
@@ -285,15 +292,15 @@ class TxCache {
                 continue //invalid or unsupported pool - skip
             //get pool last modified ledger
             const poolLedger = instanceData.lastModifiedLedgerSeq
+            //attach to the freshest timestamp entry if its ledger window already covers the pool change;
+            //by construction, the entry with the largest timestamp also has the largest ledgers.max,
+            //so checking only the latest is sufficient
+            const latestData = this.timestampData.get(this.__latestTimestamp)
             let timestampData = null
-            //try find existing timestamp entry that contains pool data for the same or earlier ledger
-            if (this.timestampData.size) {
-                const lastTsData = [...this.timestampData][this.timestampData.size - 1][1]
-                if (lastTsData.ledgers.max >= poolLedger) //set last available pool data only if the pool was updated before the last timestamp
-                    timestampData = lastTsData
-            }
-            //if not found, create a new entry for the pools data timestamp
-            if (!timestampData) {
+            if (latestData && latestData.ledgers.max >= poolLedger) {
+                timestampData = latestData
+            } else {
+                //otherwise, create a new entry for the pools data timestamp
                 timestampData = this.__ensureTimestampData(timestamp)
             }
             //set pool data
@@ -312,7 +319,7 @@ class TxCache {
         if (removeCount <= 0)
             return
         const timestamps = Array.from(this.timestampData.keys())
-        timestamps.sort()
+        timestamps.sort((a, b) => a - b)
         const keysToRemove = timestamps.slice(0, removeCount)
         for (const key of keysToRemove) {
             this.timestampData.delete(key)
@@ -331,6 +338,8 @@ class TxCache {
             return tsData
         tsData = {trades: [], poolData: new Map(), processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
         this.timestampData.set(timestamp, tsData)
+        if (timestamp > this.__latestTimestamp)
+            this.__latestTimestamp = timestamp
         return tsData
     }
 

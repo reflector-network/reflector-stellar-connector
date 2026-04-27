@@ -17,14 +17,17 @@ const TxCache = require('./cache')
  * @returns {Promise<Map<string, any>>}
  */
 async function discoverPools(baseAsset, assets, network, crossAssets) {
-    const poolContracts = await getPoolContracts(baseAsset, assets, network)
-    //load cross pool contracts when cross-price is needed and merge into a single set
-    let crossAssetsPoolContracts = new Map()
-    for (const crossPriceAsset of crossAssets.filter(asset => asset !== baseAsset)) {
-        const crossPriceAssetContracts = await getPoolContracts(crossPriceAsset, [baseAsset, ...assets], network)
-        crossAssetsPoolContracts = new Map([...crossAssetsPoolContracts, ...crossPriceAssetContracts])
+    const filteredCrossAssets = crossAssets.filter(asset => asset !== baseAsset)
+    //load base and cross-price pool contracts in parallel
+    const [basePoolContracts, ...crossPoolContracts] = await Promise.all([
+        getPoolContracts(baseAsset, assets, network),
+        ...filteredCrossAssets.map(crossPriceAsset => getPoolContracts(crossPriceAsset, [baseAsset, ...assets], network))
+    ])
+    const allPoolContracts = new Map(basePoolContracts)
+    for (const crossPools of crossPoolContracts) {
+        for (const [k, v] of crossPools)
+            allPoolContracts.set(k, v)
     }
-    const allPoolContracts = new Map([...poolContracts, ...crossAssetsPoolContracts])
     return allPoolContracts
 }
 

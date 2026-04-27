@@ -177,7 +177,7 @@ class RpcConnector {
                 await Promise.all(promises)
                 return instances
             } catch (e) {
-                console.warn({err: e, msg: 'Failed getTransactions request'})
+                console.warn({err: e, msg: 'Failed getLedgerEntries request'})
             }
         }
         throw new Error('Failed to load contracts data from RPC')

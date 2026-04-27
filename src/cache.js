@@ -258,7 +258,7 @@ class TxCache {
         //find first error
         const error = results.filter(r => r.error).sort((a, b) => b.range.from - a.range.from)[0]
         if (error) {
-            console.error({msg: 'Error fetching transactions', error: error.error, range: error.range})
+            console.error({msg: 'Error fetching transactions', err: error.error, range: error.range})
             //remove all ledgers that are newer or equal to the failed one, and remove it
             const ledgers = [...tempTxData.keys()]
                 .sort((a, b) => b - a)

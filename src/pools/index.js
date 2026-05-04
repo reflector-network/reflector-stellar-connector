@@ -87,7 +87,16 @@ async function loadSingleProviderData(provider, baseAsset, assets, network) {
     }
 }
 
+/**
+ * Configure pool providers that need on-disk persistence.
+ * @param {string} cacheDir - directory where pool provider caches are stored
+ */
+function configure(cacheDir) {
+    aquaPoolProvider.configure(cacheDir)
+}
+
 module.exports = {
     getPoolContracts,
-    getPoolVolumes
+    getPoolVolumes,
+    configure
 }

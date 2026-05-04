@@ -1,8 +1,11 @@
 /*eslint-disable no-undef */
+const os = require('os')
+const path = require('path')
+const fs = require('fs')
 const StellarProvider = require('../src')
 const TxCache = require('../src/cache')
 const RpcConnector = require('../src/rpc-connector')
-const {getPoolContracts, getPoolVolumes} = require('../src/pools')
+const {getPoolContracts, getPoolVolumes, configure: configurePools} = require('../src/pools')
 const {getDexVolumes} = require('../src/dex')
 const {getVWAP, scaleValue, TARGET_DECIMALS} = require('../src/utils')
 
@@ -13,7 +16,8 @@ jest.mock('../src/dex', () => ({
 }))
 jest.mock('../src/pools', () => ({
     getPoolVolumes: jest.fn(),
-    getPoolContracts: jest.fn()
+    getPoolContracts: jest.fn(),
+    configure: jest.fn()
 }))
 jest.mock('../src/utils', () => {
     const actual = jest.requireActual('../src/utils')
@@ -32,31 +36,43 @@ console.log = jest.fn()
 describe('StellarProvider', () => {
     /**@type {StellarProvider} */
     let provider
+    let cacheDir
 
     beforeEach(() => {
         jest.clearAllMocks()
         provider = new StellarProvider()
         RpcConnector.mockClear()
         TxCache.mockClear()
+        cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stellar-provider-test-'))
+    })
+
+    afterEach(() => {
+        fs.rmSync(cacheDir, {recursive: true, force: true})
     })
 
     test('init throws on missing rpcUrls', async () => {
-        await expect(provider.init({rpcUrls: [], network: 'network'})).rejects.toThrow('Invalid RPC URLs')
-        await expect(provider.init({rpcUrls: null, network: 'network'})).rejects.toThrow('Invalid RPC URLs')
+        await expect(provider.init({rpcUrls: [], network: 'network', cacheDir})).rejects.toThrow('Invalid RPC URLs')
+        await expect(provider.init({rpcUrls: null, network: 'network', cacheDir})).rejects.toThrow('Invalid RPC URLs')
     })
 
     test('init throws on missing network', async () => {
-        await expect(provider.init({rpcUrls: ['url'], network: null})).rejects.toThrow('Invalid network passphrase')
+        await expect(provider.init({rpcUrls: ['url'], network: null, cacheDir})).rejects.toThrow('Invalid network passphrase')
     })
 
-    test('init sets up connector, network, cache', async () => {
-        await provider.init({rpcUrls: ['url1', 'url2'], network: 'testnet'})
+    test('init throws on missing cacheDir', async () => {
+        await expect(provider.init({rpcUrls: ['url'], network: 'network'})).rejects.toThrow('Invalid cache directory')
+        await expect(provider.init({rpcUrls: ['url'], network: 'network', cacheDir: ''})).rejects.toThrow('Invalid cache directory')
+    })
+
+    test('init sets up connector, network, cache, and configures pool providers', async () => {
+        await provider.init({rpcUrls: ['url1', 'url2'], network: 'testnet', cacheDir})
         expect(provider.connector).toBeInstanceOf(RpcConnector)
         expect(provider.cache).toBeInstanceOf(TxCache)
+        expect(configurePools).toHaveBeenCalledWith(cacheDir)
     })
 
     test('getData returns correct structure', async () => {
-        await provider.init({rpcUrls: ['url'], network: 'network'})
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
         getPoolContracts.mockResolvedValue(new Map())
         provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexVolumes.mockReturnValue([
@@ -85,7 +101,7 @@ describe('StellarProvider', () => {
     })
 
     test('getPriceData handles empty data', async () => {
-        await provider.init({rpcUrls: ['url'], network: 'network'})
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
         getPoolContracts.mockResolvedValue(new Map())
         provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexVolumes.mockReturnValue([null, []])
@@ -104,7 +120,7 @@ describe('StellarProvider', () => {
     })
 
     test('getPriceData fetches XLM cross-price data when baseAsset is not XLM', async () => {
-        await provider.init({rpcUrls: ['url'], network: 'network'})
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
         const asset = 'TOKEN:GISSUER'
         getPoolContracts.mockResolvedValue(new Map())
@@ -132,7 +148,7 @@ describe('StellarProvider', () => {
     })
 
     test('getPriceData does not fetch XLM cross-price data when baseAsset is XLM', async () => {
-        await provider.init({rpcUrls: ['url'], network: 'network'})
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
         getPoolContracts.mockResolvedValue(new Map())
         provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexVolumes.mockReturnValue([[null]])
@@ -152,7 +168,7 @@ describe('StellarProvider', () => {
     })
 
     test('getCrossVolumes incorporates XLM price into asset volumes', async () => {
-        await provider.init({rpcUrls: ['url'], network: 'network'})
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
         const asset = 'TOKEN:GISSUER'
         getPoolContracts.mockResolvedValue(new Map())

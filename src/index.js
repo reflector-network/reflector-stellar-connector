@@ -1,6 +1,6 @@
 const RpcConnector = require('./rpc-connector')
 const {getDexVolumes} = require('./dex')
-const {getPoolVolumes, getPoolContracts} = require('./pools')
+const {getPoolVolumes, getPoolContracts, configure: configurePools} = require('./pools')
 const {getVWAP, scaleValue, TARGET_DECIMALS} = require('./utils')
 const TxCache = require('./cache')
 
@@ -131,15 +131,19 @@ function normalizeCrossVolumes(volumesData, count, assetCount) {
 
 class StellarProvider {
 
-    async init({rpcUrls, network}) {
+    async init({rpcUrls, network, cacheDir}) {
         if (!rpcUrls || rpcUrls.length === 0) {
             throw new Error('Invalid RPC URLs')
         }
         if (!network) {
             throw new Error('Invalid network passphrase')
         }
+        if (!cacheDir) {
+            throw new Error('Invalid cache directory')
+        }
         this.connector = new RpcConnector(rpcUrls, network)
         this.cache = new TxCache(this.connector)
+        configurePools(cacheDir)
         await Promise.resolve()
     }
 

@@ -1,4 +1,6 @@
 /*eslint-disable class-methods-use-this */
+const fs = require('fs')
+const path = require('path')
 const {adjustPrecision, encodeAssetContractId, normalizeTimestamp} = require('../utils')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 const PoolProviderBase = require('./pool-provider-base')
@@ -6,6 +8,7 @@ const PoolType = require('./pool-type')
 
 const AQUA_API_HOST = 'amm-api.aqua.network'
 const AQUA_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
+const AQUA_CACHE_FILENAME = 'aqua-pools.json'
 
 class AquaPoolProvider extends PoolProviderBase {
 
@@ -19,6 +22,43 @@ class AquaPoolProvider extends PoolProviderBase {
      */
     __cached = null
 
+    /**
+     * @type {string|null}
+     * @private
+     */
+    __cacheFile = null
+
+    /**
+     * Configure on-disk cache location and load any existing snapshot.
+     * @param {string} cacheDir - directory where the cache file is stored
+     */
+    configure(cacheDir) {
+        this.__cacheFile = path.join(cacheDir, AQUA_CACHE_FILENAME)
+        try {
+            const raw = fs.readFileSync(this.__cacheFile, 'utf8')
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed)) {
+                this.__cached = parsed
+            }
+        } catch (err) {
+            if (err.code !== 'ENOENT') {
+                console.warn({msg: 'Failed to load Aqua pool cache from disk', file: this.__cacheFile, err})
+            }
+        }
+    }
+
+    async __persistCache() {
+        if (!this.__cacheFile)
+            return
+        const tmpFile = this.__cacheFile + '.tmp'
+        try {
+            await fs.promises.writeFile(tmpFile, JSON.stringify(this.__cached))
+            await fs.promises.rename(tmpFile, this.__cacheFile)
+        } catch (err) {
+            console.error({msg: 'Failed to persist Aqua pool cache to disk', file: this.__cacheFile, err})
+        }
+    }
+
     async __loadPools() {
         const data = []
         let dataSourceUrl = `https://${AQUA_API_HOST}/pools/?size=500`
@@ -30,7 +70,7 @@ class AquaPoolProvider extends PoolProviderBase {
                 let nextHost = null
                 try {
                     nextHost = new URL(response.next).host
-                } catch (_) { /* invalid URL */ }
+                } catch (_) { /*invalid URL */ }
                 if (nextHost !== AQUA_API_HOST) {
                     console.warn({msg: 'Aquarius API returned untrusted next URL, stopping pagination', next: response.next})
                     dataSourceUrl = null
@@ -80,6 +120,7 @@ class AquaPoolProvider extends PoolProviderBase {
             this.__cached = await this.__loadPools()
             this.__lastUpdated = trimmedTs
             this.__failedAt = 0
+            await this.__persistCache()
         } catch (err) {
             this.__failedAt = now
             console.error({msg: `Error loading pool list for ${this.constructor.name} provider`, err})

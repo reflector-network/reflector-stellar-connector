@@ -6,6 +6,12 @@ const {invokeRpcMethod} = require('../src/utils')
 jest.mock('../src/utils', () => ({
     invokeRpcMethod: jest.fn()
 }))
+//mock console
+console.debug = jest.fn()
+console.info = jest.fn()
+console.warn = jest.fn()
+console.error = jest.fn()
+console.log = jest.fn()
 
 describe('RpcConnector.loadContractInstances', () => {
     let connector

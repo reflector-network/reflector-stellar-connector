@@ -152,17 +152,16 @@ class StellarProvider {
     }
 
     /**
-     * Aggregate trades and prices
-     * @param {{
-     *  baseAsset: string,
-     *  assets: string[],
-     *  from: number,
-     *  period: number,
-     *  count: number,
-     *  simSource: string,
-     *  crossAssets: string[]
-     * }} options - Options object
-     * @return {[{price: BigInt, ts: number, type: string}][]}
+     * Aggregate volumes per period and asset. Collapses all sources into a single volume/quoteVolume pair; caller aggregates across periods.
+     * @param {Object} options
+     * @param {string} options.baseAsset - base asset
+     * @param {string[]} options.assets - tracked assets
+     * @param {number} options.from - start timestamp (seconds)
+     * @param {number} options.period - period length (seconds)
+     * @param {number} options.count - number of periods
+     * @param {string} [options.simSource] - account ID for simulateTransaction
+     * @param {string[]} [options.crossAssets] - cross-price assets
+     * @return {Array<Array<Array<{volume: BigInt, quoteVolume: BigInt, ts: number}>>>}
      */
     async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets}) {
         //set crossAssets if not provided
@@ -177,20 +176,18 @@ class StellarProvider {
         await this.cache.updateCache(period, count, allPoolContracts)
         //load all trade and pool volumes data for base and cross assets
         const volumes = getVolumesData(this.cache, baseAsset, assets, this.network, from, period, count, crossAssets)
-        //init result
+        //init result array of [period][asset] = [{volume, quoteVolume, ts}]
         const data = Array.from({length: count})
-            .map(() => Array.from({length: assets.length})
-                .map(() => ({price: 0n, ts: 0, type: 'price'}))) //empty results array
-        //tradesData is an array of arrays, where each inner array corresponds to a period
+            .map(() => Array.from({length: assets.length}).map(() => null))
         for (let i = 0; i < count; i++) {
             const ts = from + period * i
             for (let j = 0; j < assets.length; j++) {
                 const assetVolumes = volumes.map(v => v?.[i]?.[j])
-                const price = getPrice(assetVolumes)
+                const {volume, quoteVolume} = aggregateVolumes(assetVolumes)
                 data[i][j] = [{
-                    price,
-                    ts,
-                    type: 'price'
+                    volume,
+                    quoteVolume,
+                    ts
                 }]
             }
         }

@@ -159,7 +159,10 @@ describe('TxCache', () => {
         const cache = createCache(createMockRpcConnector(), 60, 10)
         const tsData = cache.__ensureTimestampData(123)
         expect(tsData.trades).toEqual([])
-        expect(tsData.poolData instanceof Map).toBe(true)
+        //poolData starts as null so the DEX-side guard can distinguish
+        //"worker has never visited this period" (null) from "worker ran but
+        //no pools applied" (empty Map). See hasPoolDataForPeriod.
+        expect(tsData.poolData).toBeNull()
         expect(tsData.processedTxs instanceof Set).toBe(true)
         expect(tsData.ledgers.min).toBe(Infinity)
         expect(tsData.ledgers.max).toBe(0)
@@ -199,4 +202,218 @@ describe('TxCache', () => {
 
         expect(cache.tokensMeta.get('CBQSUF57OYX4RIMCZV62DKN6JFOTEKPHIZASMJYOUOCNHGNG2P3XQLSE')).toEqual({decimals: 8})
     }, 300000)
+
+    test('every minute slot should hold a pool snapshot after 5 successive updateCache ticks', async () => {
+        const rpc = createMockRpcConnector()
+        //pool is "unchanged" — lastModifiedLedgerSeq stays old (steady-state condition)
+        const STALE_POOL_LEDGER = 1
+        rpc.loadContractInstances = jest.fn().mockResolvedValue(
+            new Map([['pool1', {xdr: 'pool1-xdr', lastModifiedLedgerSeq: STALE_POOL_LEDGER}]])
+        )
+
+        const cache = createCache(rpc, 60, 16)
+        cache.dispose() //drive the cache directly — no worker rescheduling
+
+        const poolContracts = new Map([['pool1', createMockPoolProvider()]])
+
+        //5 PriceRunner-equivalent ticks
+        let ledger = 100
+        for (let minute = 1; minute <= 5; minute++) {
+            cache.pendingPoolData = {
+                timestamp: minute * 60,
+                poolData: new Map([['pool1', {xdr: 'pool1-xdr', lastModifiedLedgerSeq: STALE_POOL_LEDGER}]])
+            }
+
+            //one tx per tick, lands in this minute's slot via __processTxData
+            ledger += 10
+            const tickLedger = ledger
+            rpc.generateLedgerRanges.mockResolvedValueOnce([{from: tickLedger - 5, to: tickLedger}])
+            rpc.fetchTransactions.mockImplementationOnce(async (from, to, cb) => {
+                cb({txHash: `tx-min-${minute}`, createdAt: minute * 60, ledger: tickLedger})
+            })
+
+            await cache.updateCache(60, 5, poolContracts)
+        }
+
+        const distribution = []
+        for (let minute = 1; minute <= 5; minute++) {
+            const slot = cache.timestampData.get(minute * 60)
+            distribution.push({
+                minute,
+                exists: !!slot,
+                tradeCount: slot ? slot.trades.length : 0,
+                poolCount: slot && slot.poolData ? slot.poolData.size : 0
+            })
+        }
+
+        const slotsMissingPoolData = distribution
+            .filter(d => d.exists && d.poolCount === 0)
+            .map(d => d.minute)
+
+        //every slot that saw a tick must hold pool data by oracle read time
+        expect({slotsMissingPoolData, distribution}).toEqual({
+            slotsMissingPoolData: [],
+            distribution: expect.arrayContaining([expect.objectContaining({poolCount: expect.any(Number)})])
+        })
+    })
+
+
+    test('partial range failure preserves successfully-fetched lower-range data', async () => {
+        const rpc = createMockRpcConnector()
+        //empty pool list makes the auto-worker early-return without staging
+        //pendingPoolData, so __processPoolData is a no-op for this test.
+        rpc.loadContractInstances = jest.fn().mockResolvedValue(new Map())
+
+        const cache = createCache(rpc, 60, 16)
+        cache.dispose()
+
+        //three parallel ledger ranges; the middle one fails.
+        rpc.generateLedgerRanges.mockResolvedValueOnce([
+            {from: 1000, to: 1100},
+            {from: 1100, to: 1200},
+            {from: 1200, to: 1300}
+        ])
+        rpc.fetchTransactions.mockImplementation(async (from, to, cb) => {
+            if (from === 1000) {
+                cb({txHash: 'tx-low', createdAt: 60, ledger: 1050})
+                return
+            }
+            if (from === 1100) {
+                throw new Error('RPC failure on middle range (simulated)')
+            }
+            if (from === 1200) {
+                cb({txHash: 'tx-high', createdAt: 180, ledger: 1250})
+            }
+        })
+
+        await cache.updateCache(60, 5, new Map())
+
+        const slot60 = cache.timestampData.get(60)
+        const slot180 = cache.timestampData.get(180)
+
+        expect({
+            slot60TradeCount: slot60?.trades.length ?? 0,
+            slot180TradeCount: slot180?.trades.length ?? 0,
+            lastCachedLedgerStaysBelowGap: cache.lastCachedLedger < 1100
+        }).toEqual({
+            //lower-range tx preserved
+            slot60TradeCount: 1,
+            //higher-range tx discarded — gap below it makes it unreliable
+            slot180TradeCount: 0,
+            //cursor stays below the gap so the next tick refetches it
+            lastCachedLedgerStaysBelowGap: true
+        })
+    })
+
+    test('hasPoolDataForPeriod treats null as missing and empty Map as loaded', () => {
+        const cache = createCache(createMockRpcConnector(), 60, 16)
+        cache.dispose()
+
+        //slot 60 — worker never visited
+        cache.timestampData.set(60, {
+            trades: [],
+            poolData: null,
+            processedTxs: new Set(),
+            ledgers: {min: 1, max: 100}
+        })
+        //slot 120 — worker visited but no pools applied
+        cache.timestampData.set(120, {
+            trades: [],
+            poolData: new Map(),
+            processedTxs: new Set(),
+            ledgers: {min: 100, max: 200}
+        })
+        //slot 180 — worker visited and pools applied
+        cache.timestampData.set(180, {
+            trades: [],
+            poolData: new Map([['pool1', {tokens: ['A'], reserves: [1n]}]]),
+            processedTxs: new Set(),
+            ledgers: {min: 200, max: 300}
+        })
+
+        expect({
+            //null → not loaded
+            slot60: cache.hasPoolDataForPeriod(60, 120),
+            //empty Map → loaded
+            slot120: cache.hasPoolDataForPeriod(120, 180),
+            //populated Map → loaded
+            slot180: cache.hasPoolDataForPeriod(180, 240),
+            //all slots loaded → true
+            range120to240: cache.hasPoolDataForPeriod(120, 240),
+            //one null in range → false
+            range60to180: cache.hasPoolDataForPeriod(60, 180),
+            //missing slot → false
+            range240to300: cache.hasPoolDataForPeriod(240, 300)
+        }).toEqual({
+            slot60: false,
+            slot120: true,
+            slot180: true,
+            range120to240: true,
+            range60to180: false,
+            range240to300: false
+        })
+    })
+
+    test('__processPoolData populates slots after the first covering slot, even if their own pipeline failed', () => {
+        const rpc = createMockRpcConnector()
+        rpc.loadContractInstances = jest.fn().mockResolvedValue(new Map())
+        const cache = createCache(rpc, 60, 16)
+        cache.dispose()
+
+        //before any covering slot — stays null
+        cache.timestampData.set(60, {
+            trades: [],
+            poolData: null,
+            processedTxs: new Set(),
+            ledgers: {min: Infinity, max: 0}
+        })
+        //covering slot — populated by back-attach
+        cache.timestampData.set(120, {
+            trades: [],
+            poolData: null,
+            processedTxs: new Set(),
+            ledgers: {min: 100, max: 200}
+        })
+        //after covering slot, own pipeline failed — populated by forward extension
+        cache.timestampData.set(180, {
+            trades: [],
+            poolData: null,
+            processedTxs: new Set(),
+            ledgers: {min: Infinity, max: 0}
+        })
+        cache.__latestTimestamp = 180
+
+        const STALE_POOL_LEDGER = 50 //< ledgers.max(120)=200
+        cache.pendingPoolData = {
+            timestamp: 240,
+            poolData: new Map([['pool1', {xdr: 'xdr', lastModifiedLedgerSeq: STALE_POOL_LEDGER}]])
+        }
+        cache.poolContracts = new Map([['pool1', createMockPoolProvider()]])
+
+        cache.__processPoolData()
+
+        const has = (slot) => slot && slot.poolData ? slot.poolData.has('pool1') : false
+        const slot60 = cache.timestampData.get(60)
+        const slot120 = cache.timestampData.get(120)
+        const slot180 = cache.timestampData.get(180)
+        const slot240 = cache.timestampData.get(240)
+
+        expect({
+            //before any covering slot — stays null
+            slot60PoolData: slot60.poolData,
+            //covering slot — populated
+            slot120HasPool1: has(slot120),
+            //after covering slot — populated by forward extension
+            slot180HasPool1: has(slot180),
+            slot180PoolDataIsMap: slot180.poolData instanceof Map,
+            //current slot always populated
+            slot240HasPool1: has(slot240)
+        }).toEqual({
+            slot60PoolData: null,
+            slot120HasPool1: true,
+            slot180HasPool1: true,
+            slot180PoolDataIsMap: true,
+            slot240HasPool1: true
+        })
+    })
 })

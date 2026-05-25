@@ -1,6 +1,6 @@
-const {getVWAP} = require('./utils')
+const {adjustPrecision} = require('./utils')
 
-const MIN_VOLUME = 100n
+const MIN_VOLUME = adjustPrecision(100n, 7)
 
 class AssetVolumesAccumulator {
     constructor(asset, index, ts) {

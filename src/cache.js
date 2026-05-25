@@ -52,10 +52,10 @@ class TxCache {
             //update cache with recent data
             const poolData = await this.rpcConnector.loadContractInstances([...this.poolContracts.keys()])
             if (!poolData || poolData.size === 0) {
+                //still stage empty poolData so the current slot is marked worker-visited
                 console.warn({msg: 'No pool contracts defined for stellar-connector pools instance', network: this.network})
-                return
             }
-            this.pendingPoolData = {timestamp: normalizeTimestamp(dataTimestamp, this.period), poolData}
+            this.pendingPoolData = {timestamp: normalizeTimestamp(dataTimestamp, this.period), poolData: poolData || new Map()}
         } catch (err) {
             console.error({err, msg: 'Error in stellar-connector pools instance', network: this.network})
         } finally {
@@ -89,8 +89,8 @@ class TxCache {
      */
     __latestTimestamp = 0
     /**
-     * Pools data structure: key is the pool contract ID and value are the tokens and their reserves
-     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}>, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
+     * Pools data structure: key is the pool contract ID and value are the tokens and their reserves. poolData is null if no worker tick has visited the period; otherwise a Map (possibly empty).
+     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}> | null, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
      * @private
      */
     timestampData = new Map()
@@ -160,10 +160,25 @@ class TxCache {
         for (let ts = from; ts < to; ts += this.period) {
             //get timestamp data
             const timestampData = this.timestampData.get(ts)
-            if (timestampData)
+            if (timestampData && timestampData.poolData)
                 result.push(...[...timestampData.poolData.values()])
         }
         return result
+    }
+
+    /**
+     * Whether every slot in the range has been visited by the pool worker (poolData is a Map, possibly empty).
+     * @param {number} from - period range start
+     * @param {number} to - period range end
+     * @return {boolean}
+     */
+    hasPoolDataForPeriod(from, to) {
+        for (let ts = from; ts < to; ts += this.period) {
+            const data = this.timestampData.get(ts)
+            if (!data || data.poolData === null)
+                return false
+        }
+        return true
     }
 
 
@@ -211,14 +226,12 @@ class TxCache {
      * @return {Promise<void>}
      */
     async updateCache(period, limit, poolContracts) {
-
+        //process transaction data
+        await this.__processTxData(period, limit)
         //update tracked contracts
         this.poolContracts = poolContracts
         //process pending pool data
         this.__processPoolData()
-
-        await this.__processTxData(period, limit)
-
         //clean up unneeded entries from cache
         this.__evictExpired()
     }
@@ -255,17 +268,17 @@ class TxCache {
             .catch(err => ({error: err, range}))
         ))
 
-        //find first error
-        const error = results.filter(r => r.error).sort((a, b) => b.range.from - a.range.from)[0]
+        //find earliest error — we evict everything from the first gap onward so the next tick refetches it
+        const error = results.filter(r => r.error).sort((a, b) => a.range.from - b.range.from)[0]
         if (error) {
             console.error({msg: 'Error fetching transactions', err: error.error, range: error.range})
-            //remove all ledgers that are newer or equal to the failed one, and remove it
-            const ledgers = [...tempTxData.keys()]
-                .sort((a, b) => b - a)
-                .filter(l => error.range.from >= l)
+            //remove all ledgers that are newer or equal to the failed one
+            const ledgers = [...tempTxData.keys()].filter(l => l >= error.range.from)
             for (const ledger of ledgers) {
                 tempTxData.delete(ledger)
             }
+            if (ledgers.length > 0)
+                console.warn({msg: 'Evicted ledgers after range failure', evicted: ledgers.length, fromLedger: error.range.from})
         }
 
         //add tx data to cache
@@ -286,28 +299,45 @@ class TxCache {
             const provider = this.poolContracts.get(contractId)
             if (!provider)
                 continue //unknown contract - skip
-            //decode pool instance data
-            const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, contractId, this.network, this.tokensMeta) || {}
-            if (!reserves || !tokens)
-                continue //invalid or unsupported pool - skip
             //get pool last modified ledger
             const poolLedger = instanceData.lastModifiedLedgerSeq
-            //attach to the freshest timestamp entry if its ledger window already covers the pool change;
-            //by construction, the entry with the largest timestamp also has the largest ledgers.max,
-            //so checking only the latest is sufficient
-            const latestData = this.timestampData.get(this.__latestTimestamp)
-            let timestampData = null
-            if (latestData && latestData.ledgers.max >= poolLedger) {
-                timestampData = latestData
-            } else {
-                //otherwise, create a new entry for the pools data timestamp
-                timestampData = this.__ensureTimestampData(timestamp)
+            //decode pool instance data
+            const {reserves, tokens} =
+                provider.processPoolInstance(instanceData.xdr, contractId, this.network, this.tokensMeta, poolLedger) || {}
+            if (!reserves || !tokens)
+                continue //invalid or unsupported pool - skip
+            //attach pools data to target timestamps
+            const targetTimestampData = this.__getPoolAttachTargets(poolLedger, timestamp)
+            for (const [, data] of targetTimestampData) {
+                //lazy-init Map for slots never worker-visited
+                if (data.poolData === null)
+                    data.poolData = new Map()
+                //set pool data
+                data.poolData.set(contractId, {reserves, tokens})
             }
-            //set pool data
-            timestampData.poolData.set(contractId, {reserves, tokens})
         }
+        //mark current slot as worker-visited even if no pools applied
+        const currentSlot = this.__ensureTimestampData(timestamp)
+        if (currentSlot.poolData === null)
+            currentSlot.poolData = new Map()
         //clear pending data
         this.pendingPoolData = null
+    }
+
+    __getPoolAttachTargets(ledger, currentTimestamp) {
+        //walk slots ascending — once one covers the pool's last-modified ledger, every later slot inherits the same stable state
+        const timestamps = [...this.timestampData.keys()].filter(t => t < currentTimestamp).sort((a, b) => a - b)
+        const targetTimestampData = new Map()
+        let foundCoveringSlot = false
+        for (const timestamp of timestamps) {
+            const data = this.timestampData.get(timestamp)
+            if (data.ledgers.max >= ledger)
+                foundCoveringSlot = true
+            if (foundCoveringSlot)
+                targetTimestampData.set(timestamp, data)
+        }
+        targetTimestampData.set(currentTimestamp, this.__ensureTimestampData(currentTimestamp))
+        return targetTimestampData
     }
 
     /**
@@ -336,7 +366,7 @@ class TxCache {
         let tsData = this.timestampData.get(timestamp)
         if (tsData)
             return tsData
-        tsData = {trades: [], poolData: new Map(), processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
+        tsData = {trades: [], poolData: null, processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
         this.timestampData.set(timestamp, tsData)
         if (timestamp > this.__latestTimestamp)
             this.__latestTimestamp = timestamp

@@ -7,7 +7,6 @@ const TxCache = require('../src/cache')
 const RpcConnector = require('../src/rpc-connector')
 const {getPoolContracts, getPoolVolumes, configure: configurePools} = require('../src/pools')
 const {getDexVolumes} = require('../src/dex')
-const {getVWAP, scaleValue, TARGET_DECIMALS} = require('../src/utils')
 
 jest.mock('../src/rpc-connector')
 jest.mock('../src/cache')
@@ -94,10 +93,10 @@ describe('StellarProvider', () => {
         const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
         expect(result[0]).toHaveLength(2)
-        //period 0, USD: dex(5/20) + pool(5/10) => volume=10, quoteVolume=30 => getVWAP(10n, 30n)
-        expect(result[0][0]).toEqual([{price: getVWAP(10n, 30n), ts: 1000, type: 'price'}])
-        //period 1, EUR: dex(30/60) + pool(30/60) => volume=60, quoteVolume=120 => getVWAP(60n, 120n)
-        expect(result[1][1]).toEqual([{price: getVWAP(60n, 120n), ts: 2000, type: 'price'}])
+        //period 0, USD: dex(5/20) + pool(5/10) => volume=10, quoteVolume=30
+        expect(result[0][0]).toEqual([{volume: 10n, quoteVolume: 30n, ts: 1000}])
+        //period 1, EUR: dex(30/60) + pool(30/60) => volume=60, quoteVolume=120
+        expect(result[1][1]).toEqual([{volume: 60n, quoteVolume: 120n, ts: 2000}])
     })
 
     test('getPriceData handles empty data', async () => {
@@ -116,7 +115,8 @@ describe('StellarProvider', () => {
         }
         const result = await provider.getPriceData(options)
         expect(result).toHaveLength(2)
-        expect(result[0][0][0].price).toBe(0n)
+        expect(result[0][0][0].volume).toBe(0n)
+        expect(result[0][0][0].quoteVolume).toBe(0n)
     })
 
     test('getPriceData fetches XLM cross-price data when baseAsset is not XLM', async () => {
@@ -194,7 +194,8 @@ describe('StellarProvider', () => {
             count: 1,
             crossAssets: ['XLM']
         })
-        //price should be non-zero because XLM cross-price provides data
-        expect(result[0][0][0].price).toBeGreaterThan(0n)
+        //quoteVolume should be non-zero because XLM cross-price provides
+        //volumes that get folded into the per-period accumulator
+        expect(result[0][0][0].quoteVolume).toBeGreaterThan(0n)
     })
 })

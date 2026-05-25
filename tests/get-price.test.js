@@ -33,7 +33,11 @@ describe.skip('get price test', () => {
                     count,
                     crossAssets
                 })
-                console.table(assets.map((asset, i) => ({asset, price: (Number(result[0][i][0].price) / Math.pow(10, 14))})))
+                console.table(assets.map((asset, i) => {
+                    const entry = result[0][i][0]
+                    const price = entry.quoteVolume === 0n ? 0 : Number(entry.volume) / Number(entry.quoteVolume)
+                    return {asset, price}
+                }))
                 count = 1
             } catch (e) {
                 console.error(e)

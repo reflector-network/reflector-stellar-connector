@@ -2,6 +2,13 @@
 const StellarLiquidityPoolProvider = require('../src/pools/stellar-liquidity-pool-provider')
 const PoolType = require('../src/pools/pool-type')
 
+//mock console
+console.debug = jest.fn()
+console.info = jest.fn()
+console.warn = jest.fn()
+console.error = jest.fn()
+console.log = jest.fn()
+
 describe('StellarLiquidityPoolProvider', () => {
     let provider
 

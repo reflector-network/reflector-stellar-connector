@@ -106,6 +106,7 @@ class AquaPoolProvider extends PoolProviderBase {
             }).filter(value => !!value)
             data.push(...parsedData)
         }
+        console.debug({msg: 'Loaded Aqua pool list', count: data.length})
         return data
     }
 
@@ -114,8 +115,11 @@ class AquaPoolProvider extends PoolProviderBase {
         const trimmedTs = normalizeTimestamp(now, 60 * 60 * 1000) //trim to hours in order to refresh every 60 minutes
         if (trimmedTs <= this.__lastUpdated)
             return
-        if (this.__failedAt && now - this.__failedAt < AQUA_FAILURE_COOLDOWN_MS)
-            return //within failure cooldown - keep stale cache
+        if (this.__failedAt && now - this.__failedAt < AQUA_FAILURE_COOLDOWN_MS) {
+            //within failure cooldown - keep stale cache
+            console.warn({msg: 'Aqua pool refresh in cooldown — using stale pool list', failedAt: this.__failedAt, retryAfter: this.__failedAt + AQUA_FAILURE_COOLDOWN_MS})
+            return
+        }
         try {
             this.__cached = await this.__loadPools()
             this.__lastUpdated = trimmedTs
@@ -186,24 +190,25 @@ class AquaPoolProvider extends PoolProviderBase {
      * @param {string} contractId - pool contract id
      * @param {string} network - network passphrase
      * @param {Map<string, {decimals: number}>} tokenMeta - Metadata for tokens to aggregate pools data for
+     * @param {number} lastModifiedLedger - pool's last-modified ledger seq
      * @return {{reserves: BigInt[], tokens: string[]}|null} - pool reserves and tokens or null if the pool is invalid
      */
-    processPoolInstance(poolInstance, contractId, network, tokenMeta) {
+    processPoolInstance(poolInstance, contractId, network, tokenMeta, lastModifiedLedger) {
         try {
             //extract pool data
             const poolData = extractAquaPoolData(poolInstance, tokenMeta)
 
             //skip if pool is invalid
             if (!poolData || poolData.reserves.some(r => r <= 0n)) {
-                console.debug({msg: 'Skipping invalid pool', poolId: contractId})
+                console.debug({msg: 'Skipping invalid pool', poolId: contractId, lastModifiedLedger})
                 return null
             }
             if (poolData.stableData) {
-                console.debug({msg: 'Stable pool raw reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()]})
+                console.debug({msg: 'Stable pool raw reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()], lastModifiedLedger})
                 poolData.reserves[0] = calculatePrice(poolData.reserves, poolData.stableData)
                 poolData.reserves[1] = adjustPrecision(1n, 0)
             }
-            console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()]})
+            console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()], lastModifiedLedger})
             return poolData
         } catch (err) {
             console.error({msg: 'Error processing pool', poolId: contractId, err})

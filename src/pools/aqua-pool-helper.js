@@ -187,6 +187,9 @@ function calculatePrice(reserves, stableData) {
     const tenToFourteen = 10n ** 14n
     const aDy = calculateDy(0, 1, tenToFourteen, reserves, stableData.fee, amp)
     const bDy = calculateDy(1, 0, tenToFourteen, reserves, stableData.fee, amp)
+    //pool too shallow to price a 10^14 swap in either direction
+    if (aDy <= 0n || bDy <= 0n)
+        return 0n
     return (aDy + tenToFourteen * tenToFourteen / bDy) / 2n
 }
 

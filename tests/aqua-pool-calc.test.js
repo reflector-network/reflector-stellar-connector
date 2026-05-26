@@ -135,19 +135,23 @@ describe.skip('Aqua Pool Provider', () => {
                 console.debug(`Skipping pool with zero reserves: ${pool.address}`)
                 continue
             }
-            const originalReserves = reserves
-            if (stableData) {
-                reserves[0] = calculatePrice(poolData.reserves, poolData.stableData)
-                reserves[1] = adjustPrecision(1n, 0)
-            }
-            const aGtB = originalReserves[0] > originalReserves[1]
+            const one = adjustPrecision(1n, 0) //10^14, the "1.0" sentinel in 14-decimal scale
+            const computedPrice = stableData
+                ? calculatePrice(reserves, stableData)
+                : reserves[1] * one / reserves[0]
+            //in any AMM the side with more reserves is the cheaper one,
+            //so price(B per A) must be < 1 iff reserves[0] > reserves[1]
+            const aGtB = reserves[0] > reserves[1]
+            //pools that returned no price (too shallow) carry no signal here
+            const ok = computedPrice === 0n
+                ? 'n/a'
+                : aGtB === (computedPrice < one) ? true : '!!!'
             res.push({
                 address: pool.address,
                 tokens: pool.tokens.map(t => t[1].split(':')[0]).join('-'),
-                originalReserves,
                 reserves,
-                computedPrice: reserves[0] * adjustPrecision(1n, 0) / reserves[1],
-                is: aGtB === reserves[0] > reserves[1] ? aGtB : '!!!',
+                computedPrice,
+                ok,
                 type: pool.type
             })
         }

@@ -198,4 +198,85 @@ describe('StellarProvider', () => {
         //volumes that get folded into the per-period accumulator
         expect(result[0][0][0].quoteVolume).toBeGreaterThan(0n)
     })
+
+    //XLM/USDC rate of 1.0 and XLM/TOKEN volumes of 200 XLM per 400 TOKEN
+    //must yield TOKEN priced in USDC at 200/400 = 0.5.
+    test('getPriceData computes TOKEN price in USDC via XLM cross pair', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
+        const asset = 'TOKEN:GISSUER'
+        getPoolContracts.mockResolvedValue(new Map())
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
+
+        getDexVolumes.mockImplementation((_cache, baseAsset) => {
+            if (baseAsset === 'XLM') {
+                return [[
+                    {volume: 300n, quoteVolume: 300n}, //XLM/USDC pool: 300 XLM traded for 300 USDC
+                    {volume: 200n, quoteVolume: 400n}  //XLM/TOKEN pool: 200 XLM traded for 400 TOKEN
+                ]]
+            }
+            return [[null]]
+        })
+        getPoolVolumes.mockImplementation((_cache, baseAsset) => {
+            if (baseAsset === 'XLM') return [[null, null]]
+            return [[null]]
+        })
+
+        const result = await provider.getPriceData({
+            baseAsset: usdcBase,
+            assets: [asset],
+            from: 1000,
+            period: 1000,
+            count: 1,
+            crossAssets: ['XLM']
+        })
+
+        expect(result[0][0]).toEqual([{volume: 200n, quoteVolume: 400n, ts: 1000}])
+        //getVWAP on these volumes yields the cross-price 0.5 * 10^14
+        const {volume, quoteVolume} = result[0][0][0]
+        expect(volume * (10n ** 14n) / quoteVolume).toBe(5n * (10n ** 13n))
+    })
+
+    //a missing cross/base rate in one period must not skip later periods
+    test('getPriceData fills later periods even when an earlier period has no cross/base data', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
+        const asset = 'TOKEN:GISSUER'
+        getPoolContracts.mockResolvedValue(new Map())
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
+
+        getDexVolumes.mockImplementation((_cache, baseAsset) => {
+            if (baseAsset === 'XLM') {
+                return [
+                    [   //period 0: no XLM/USDC trades, rate is unavailable
+                        {volume: 0n, quoteVolume: 0n},
+                        {volume: 200n, quoteVolume: 400n}
+                    ],
+                    [   //period 1: full data
+                        {volume: 300n, quoteVolume: 300n},
+                        {volume: 200n, quoteVolume: 400n}
+                    ]
+                ]
+            }
+            return [[null], [null]]
+        })
+        getPoolVolumes.mockImplementation((_cache, baseAsset) => {
+            if (baseAsset === 'XLM') return [[null, null], [null, null]]
+            return [[null], [null]]
+        })
+
+        const result = await provider.getPriceData({
+            baseAsset: usdcBase,
+            assets: [asset],
+            from: 1000,
+            period: 1000,
+            count: 2,
+            crossAssets: ['XLM']
+        })
+
+        //period 0 has no rate so cross volumes drop out
+        expect(result[0][0]).toEqual([{volume: 0n, quoteVolume: 0n, ts: 1000}])
+        //period 1 still folds the cross contribution
+        expect(result[1][0]).toEqual([{volume: 200n, quoteVolume: 400n, ts: 2000}])
+    })
 })

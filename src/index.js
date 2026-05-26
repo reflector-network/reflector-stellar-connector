@@ -94,34 +94,38 @@ function getPrice(volumeData) {
 }
 
 /**
- * Convert cross-price-based accumulator volumes to baseAsset-equivalent for each tracked asset in single period.
- * @param {[AssetVolumesAccumulator[]]} volumesData - trades data, asset at 0 is cross price asset
+ * Restate cross-asset-denominated volumes in baseAsset units, so they can be
+ * aggregated alongside direct baseAsset/asset volumes.
+ * For each period, slot 0 of every source is the crossAsset/baseAsset
+ * accumulator and slots 1..assetCount are crossAsset/assets[c] accumulators.
+ * Output is reindexed to the tracked-asset list only.
+ * @param {Array} volumesData - cross-pair accumulators, one row per source
  * @param {number} count - number of periods
- * @param {number} assetCount - total assets count
- * @return {{volume: BigInt, quoteVolume: BigInt}[]}
+ * @param {number} assetCount - number of tracked assets
+ * @return {Array}
  */
 function normalizeCrossVolumes(volumesData, count, assetCount) {
-    //init result
-    const result = Array.from({length: volumesData.length})
-        .map(() => Array.from({length: count}).map(() => null)
-            .map(() => Array.from({length: assetCount}).map(() => null))
+    const sourceCount = volumesData.length
+    const result = Array.from({length: sourceCount}, () =>
+        Array.from({length: count}, () =>
+            Array.from({length: assetCount}, () => null)
         )
-    for (let i = 0; i < count; i++) {
-    //get cross asset price
-        const crossAssetPrice = getPrice(volumesData.map(v => v?.[i][0]))
-        if (crossAssetPrice === 0n) //return empty result if no cross-price available
-            return result
-        const normalizeVolume = (volume) => volume * scaleValue(1n, TARGET_DECIMALS) / crossAssetPrice
-        //calc price for each asset
+    )
+    const scale = scaleValue(1n, TARGET_DECIMALS)
+    for (let period = 0; period < count; period++) {
+        //crossAsset-to-baseAsset rate aggregated across all sources
+        const crossToBaseRate = getPrice(volumesData.map(src => src?.[period]?.[0]))
+        if (crossToBaseRate === 0n)
+            continue //skip period if no crossAsset/baseAsset data available
         for (let c = 0; c < assetCount; c++) {
-            for (let j = 0; j < volumesData.length; j++) {
-                const assetData = volumesData[j]?.[i]?.[c + 1]
-                //convert to baseAsset volume
-                if (assetData) {
-                    result[j][i][c] = {
-                        volume: normalizeVolume(assetData.volume),
-                        quoteVolume: assetData.quoteVolume
-                    }
+            for (let src = 0; src < sourceCount; src++) {
+                //slot c + 1 because slot 0 is the baseAsset accumulator
+                const acc = volumesData[src]?.[period]?.[c + 1]
+                if (!acc)
+                    continue
+                result[src][period][c] = {
+                    volume: acc.volume * scale / crossToBaseRate,
+                    quoteVolume: acc.quoteVolume
                 }
             }
         }

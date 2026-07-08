@@ -74,13 +74,14 @@ class AggregatorBase {
      * @param {string} asset - asset to add volumes for
      * @param {BigInt} baseVolume - base volume
      * @param {BigInt} quoteVolume - quote volume
+     * @param {Object} extraData - extra data for the volume update
      * @private
      */
-    addVolumes(asset, baseVolume, quoteVolume) {
+    addVolumes(asset, baseVolume, quoteVolume, extraData) {
         const accumulator = this.assets.get(asset)
         if (!accumulator)
             return
-        accumulator.addVolumes(baseVolume, quoteVolume)
+        accumulator.addVolumes(baseVolume, quoteVolume, extraData)
     }
 }
 

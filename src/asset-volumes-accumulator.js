@@ -20,12 +20,14 @@ class AssetVolumesAccumulator {
      * Add volumes
      * @param {BigInt} baseVolume - baseAsset side
      * @param {BigInt} quoteVolume - target asset side
+     * @param {Object} extraData - extra data for the volume update
      */
-    addVolumes(baseVolume, quoteVolume) {
+    addVolumes(baseVolume, quoteVolume, extraData) {
         if (!baseVolume || !quoteVolume || baseVolume < MIN_VOLUME || quoteVolume < MIN_VOLUME)
             return
         this.volume += baseVolume
         this.quoteVolume += quoteVolume
+        console.debug({msg: `Adding volumes`, asset: this.asset, baseVolume, quoteVolume, ...extraData, ts: this.ts})
     }
 }
 

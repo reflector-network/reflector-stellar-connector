@@ -1,5 +1,6 @@
 const {scValToNative, xdr} = require('@stellar/stellar-sdk')
 const {DEFAULT_DECIMALS, adjustPrecision} = require('../utils')
+const {extractInstanceStorage} = require('./utils')
 
 /**
  * Returns native storage
@@ -200,7 +201,7 @@ function calculatePrice(reserves, stableData) {
  * @return {{reserves: BigInt[], tokens: string[], stableData: {initialA: bigint, initialATime: bigint, futureA: bigint, futureATime: bigint, fee: bigint}}} - reserves array. First element is base asset reserve, second is quote asset reserve.
  */
 function extractAquaPoolData(contractData, tokenMeta) {
-    const storage = getAquaPoolContractValues(xdr.LedgerEntryData.fromXDR(contractData, 'base64'), ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
+    const storage = getAquaPoolContractValues(extractInstanceStorage(contractData), ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
     const reserves = storage.ReserveA !== undefined
         ? [storage.ReserveA, storage.ReserveB]
         : [storage.Reserves[0], storage.Reserves[1]]

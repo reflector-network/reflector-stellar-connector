@@ -160,8 +160,13 @@ class TxCache {
         for (let ts = from; ts < to; ts += this.period) {
             //get timestamp data
             const timestampData = this.timestampData.get(ts)
-            if (timestampData && timestampData.poolData)
-                result.push(...[...timestampData.poolData.values()])
+            if (timestampData && timestampData.poolData) {
+                const preparedPoolData = []
+                for (const [key, value] of timestampData.poolData.entries()) {
+                    preparedPoolData.push({...value, poolId: key})
+                }
+                result.push(...preparedPoolData)
+            }
         }
         return result
     }

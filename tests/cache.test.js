@@ -129,7 +129,7 @@ describe('TxCache', () => {
         cache.timestampData.set(0, {trades: [], poolData: poolsData1})
         cache.timestampData.set(60, {trades: [], poolData: poolsData2})
         const pools = cache.getPoolVolumesForPeriod(0, 120)
-        expect(pools).toEqual([{tokens: ['A'], reserves: [1n]}, {tokens: ['B'], reserves: [2n]}])
+        expect(pools).toEqual([{tokens: ['A'], reserves: [1n], poolId: 'id1'}, {tokens: ['B'], reserves: [2n], poolId: 'id2'}])
     })
 
     test('updateCache calls rpcConnector methods and evicts expired', async () => {
@@ -257,6 +257,105 @@ describe('TxCache', () => {
         })
     })
 
+    test('iteration order with a mid-loop updated pool still attaches stable pools to the previous slot (fix verification)', () => {
+        //97-pool iteration snapshot captured from a real worker tick — Map iteration order replays the production sequence
+        const fixture = require('./fixtures/pool-iteration-snapshot.json')
+        const order = fixture.tick0.map(e => e.poolId)
+        expect(order).toHaveLength(97)
+
+        const SLOT_PREV = 60 * 29 //previous-tick slot
+        const SLOT_CURRENT = 60 * 30 //current-tick slot
+        const L_PREV_MAX = 1000 //ledgers.max of previous slot
+        const STALE_LEDGER = 500 //below L_PREV_MAX — back-attach target
+        const NEW_LEDGER = 1500 //above L_PREV_MAX — current-slot-only
+
+        //5 pools with lastModifiedLedgerSeq past L_PREV_MAX; the rest stale
+        const updatedPools = new Set([
+            'CBRXOYKXPQI4EEA6KA35TUIYN5OJLNWMTIVDOMNOIL2BG5Y5LEDHUU7V',
+            '7a3b99b13f01fbb89754c9721b41aaafac773d0f6e222a7024aa9e4310a9debf',
+            '461f6345f6b34f6b038f595ea282dad0b5fdcc15151186f2bb956a1a93bc430f',
+            '59fa1dc57433dcfbd2db7319d26cb3da1f28f2d8095a3ec36ad4ef9cadb0013e',
+            '5af87fae05b76e76c423fc1cc592a45828a0773afea0ba0e12aa92a58bfbb4e3'
+        ])
+
+        const rpc = createMockRpcConnector()
+        const cache = createCache(rpc, 60, 16)
+        cache.dispose() //drive __processPoolData directly — no worker scheduling
+
+        //previous slot pre-populated: trades present, ledgers.max = L_PREV_MAX, no pool data attached
+        cache.timestampData.set(SLOT_PREV, {
+            trades: [{amountBought: 1n, amountSold: 1n, assetBought: 'A', assetSold: 'B'}],
+            poolData: new Map(),
+            processedTxs: new Set(),
+            ledgers: {min: 1, max: L_PREV_MAX}
+        })
+        cache.__latestTimestamp = SLOT_PREV
+
+        //build pendingPoolData in the captured iteration order
+        const poolDataMap = new Map()
+        const poolContracts = new Map()
+        for (const poolId of order) {
+            poolDataMap.set(poolId, {
+                xdr: `xdr-${poolId}`,
+                lastModifiedLedgerSeq: updatedPools.has(poolId) ? NEW_LEDGER : STALE_LEDGER
+            })
+            poolContracts.set(poolId, {
+                processPoolInstance: jest.fn().mockReturnValue({
+                    reserves: [100n, 200n],
+                    tokens: [`tokA-${poolId.slice(0, 6)}`, `tokB-${poolId.slice(0, 6)}`]
+                })
+            })
+        }
+        cache.poolContracts = poolContracts
+        cache.pendingPoolData = {timestamp: SLOT_CURRENT, poolData: poolDataMap}
+
+        cache.__processPoolData()
+
+        const slotPrevPools = cache.timestampData.get(SLOT_PREV).poolData
+        const slotCurrentPools = cache.timestampData.get(SLOT_CURRENT)?.poolData ?? new Map()
+
+        //position of the first updated pool — pre-fix, everything from this index onward flipped into the current slot only
+        const firstBranchBIndex = order.findIndex(p => updatedPools.has(p))
+        const before = order.slice(0, firstBranchBIndex)
+        const after = order.slice(firstBranchBIndex)
+
+        const beforeInSlotPrev = before.filter(p => slotPrevPools.has(p))
+        const beforeInSlotCurrent = before.filter(p => slotCurrentPools.has(p))
+
+        const stableAfter = after.filter(p => !updatedPools.has(p))
+        const updatedAfter = after.filter(p => updatedPools.has(p))
+        const stableAfterInSlotPrev = stableAfter.filter(p => slotPrevPools.has(p)).length
+        const updatedAfterInSlotPrev = updatedAfter.filter(p => slotPrevPools.has(p)).length
+
+        expect({
+            firstBranchBIndex,
+            firstBranchBPool: order[firstBranchBIndex],
+            //stable pools land in both slots
+            beforeAllInBothSlots: {
+                inSlotPrev: beforeInSlotPrev.length,
+                inSlotCurrent: beforeInSlotCurrent.length,
+                expected: before.length
+            },
+            //stable pools after the trigger still back-attach to prev slot
+            stableAfterTrigger: {
+                count: stableAfter.length,
+                inSlotPrev: stableAfterInSlotPrev,
+                allInSlotCurrent: stableAfter.every(p => slotCurrentPools.has(p))
+            },
+            //updated pools reach current slot only (poolLedger > L_PREV_MAX)
+            updatedAfterTrigger: {
+                count: updatedAfter.length,
+                inSlotPrev: updatedAfterInSlotPrev,
+                allInSlotCurrent: updatedAfter.every(p => slotCurrentPools.has(p))
+            }
+        }).toEqual({
+            firstBranchBIndex: 13,
+            firstBranchBPool: 'CBRXOYKXPQI4EEA6KA35TUIYN5OJLNWMTIVDOMNOIL2BG5Y5LEDHUU7V',
+            beforeAllInBothSlots: {inSlotPrev: 13, inSlotCurrent: 13, expected: 13},
+            stableAfterTrigger: {count: 79, inSlotPrev: 79, allInSlotCurrent: true},
+            updatedAfterTrigger: {count: 5, inSlotPrev: 0, allInSlotCurrent: true}
+        })
+    })
 
     test('partial range failure preserves successfully-fetched lower-range data', async () => {
         const rpc = createMockRpcConnector()

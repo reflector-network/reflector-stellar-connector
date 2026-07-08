@@ -33,14 +33,14 @@ function xdrParseResult(tx) {
         } else { //regular tx
             opResults = innerResult.results()
         }
-        return (opResults || []).map(parseRawOpResult).flat().filter(v => !!v)
+        return (opResults || []).map(opR => parseRawOpResult(opR, tx.txHash)).flat().filter(v => !!v)
     } catch (err) {
         console.error({err, msg: 'Error processing tx', tx: tx.hash})
         return null
     }
 }
 
-function parseRawOpResult(rawOpResult) {
+function parseRawOpResult(rawOpResult, txHash) {
     const inner = rawOpResult.tr()
     if (inner === undefined)
         return null //"opNoAccount" Case
@@ -49,10 +49,10 @@ function parseRawOpResult(rawOpResult) {
     switch (successOpResultType.name) {
         case 'pathPaymentStrictReceiveSuccess':
         case 'pathPaymentStrictSendSuccess':
-            return opResult.value().offers().map(claimedOffer => processDexTrade(claimedOffer))
+            return opResult.value().offers().map(claimedOffer => processDexTrade(claimedOffer, txHash))
         case 'manageSellOfferSuccess':
         case 'manageBuyOfferSuccess':
-            return opResult.value().offersClaimed().map(claimedOffer => processDexTrade(claimedOffer))
+            return opResult.value().offersClaimed().map(claimedOffer => processDexTrade(claimedOffer, txHash))
         default:
             return null
     }
@@ -61,9 +61,10 @@ function parseRawOpResult(rawOpResult) {
 /**
  * Parse DEX trades from claimed offers
  * @param {xdr.ClaimAtom} claimedAtom - claimed atom from the operation
+ * @param {string} txHash - transaction hash
  * @return {Trade|null}
  */
-function processDexTrade(claimedAtom) {
+function processDexTrade(claimedAtom, txHash) {
     let type
     switch (claimedAtom.arm()) {
         case 'v0':
@@ -93,6 +94,7 @@ function processDexTrade(claimedAtom) {
     }
     res.assetSold = getAssetCode(value.assetSold())
     res.assetBought = getAssetCode(value.assetBought())
+    res.txHash = txHash
     return res
 }
 

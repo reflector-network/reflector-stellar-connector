@@ -3,11 +3,11 @@ const {Asset, getLiquidityPoolId, LiquidityPoolAsset, xdr, StrKey} = require('@s
 const {adjustPrecision, convertToStellarAsset, DEFAULT_DECIMALS, encodeXDRAssetToContractId} = require('../utils')
 const PoolProviderBase = require('./pool-provider-base')
 const PoolType = require('./pool-type')
+const {extractInstanceStorage} = require('./utils')
 
 
 function extractPoolData(contractData, network) {
-    const data =
-xdr.LedgerEntryData.fromXDR(contractData, 'base64')?.value()?.body?.()?.value?.()
+    const data = contractData?.value()?.body?.()?.value?.()
     if (!data)
         return {}
     const reserves = [
@@ -84,7 +84,7 @@ class StellarLiquidityPoolProvider extends PoolProviderBase {
     processPoolInstance(poolInstance, contractId, network, tokenMeta, lastModifiedLedger) {
         try {
         //extract pool data
-            const poolData = extractPoolData(poolInstance, network)
+            const poolData = extractPoolData(extractInstanceStorage(poolInstance), network)
 
             //skip if pool is invalid
             if (!poolData || poolData.reserves.some(r => r <= 0n)) {

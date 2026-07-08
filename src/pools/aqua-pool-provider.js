@@ -90,7 +90,7 @@ class AquaPoolProvider extends PoolProviderBase {
                         type = 'stableswap'
                         break
                     default:
-                        console.log('Aquarius pool type not supported: ' + pool.pool_type)
+                        console.log({msg: 'Aquarius pool type not supported', pool_type: pool.pool_type, poolId: pool.address})
                 }
                 if (pool.swap_killed
                     || !type

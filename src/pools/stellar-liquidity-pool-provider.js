@@ -7,16 +7,16 @@ const {extractInstanceStorage} = require('./utils')
 
 
 function extractPoolData(contractData, network) {
-    const data = contractData?.value()?.body?.()?.value?.()
+    const data = contractData?.value?.body?.value
     if (!data)
         return {}
     const reserves = [
-        data.reserveA().toBigInt(),
-        data.reserveB().toBigInt()
+        data.reserveA,
+        data.reserveB
     ]
     const tokens = [
-        encodeXDRAssetToContractId(data.params().assetA(), network),
-        encodeXDRAssetToContractId(data.params().assetB(), network)
+        encodeXDRAssetToContractId(data.params.assetA, network),
+        encodeXDRAssetToContractId(data.params.assetB, network)
     ]
 
     reserves[0] = adjustPrecision(reserves[0], DEFAULT_DECIMALS)
@@ -38,7 +38,7 @@ function encodeLiquidityPoolKey(assets) {
         'constant_product',
         new LiquidityPoolAsset(parseAssets[0], parseAssets[1], 30).getLiquidityPoolParameters()
     )
-    return poolId.toString('hex')
+    return Buffer.from(poolId.buffer).toString('hex')
 }
 
 class StellarLiquidityPoolProvider extends PoolProviderBase {

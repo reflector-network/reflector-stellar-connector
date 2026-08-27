@@ -20,7 +20,7 @@ console.debug = function(...args) {
         normalized.vwap = getVWAP(normalized.baseVolume, normalized.quoteVolume).toString()
         normalized.baseVolume = normalized.baseVolume.toString()
         normalized.quoteVolume = normalized.quoteVolume.toString()
-        const pair = `${normalized.baseAsset}-${normalized.asset}`
+        const pair = `${normalized.baseAsset || normalized.baseToken}-${normalized.asset}`
         const ts = normalized.ts
         if (!collectedLogs[pair]) {
             collectedLogs[pair] = {}
@@ -65,19 +65,19 @@ const fetchContractTxs = async (contractId, to, opts) => {
     let next = txs._links.next ? `${API_BASE}${txs._links.next.href}` : null
     while (next) {
         for (const tx of txs._embedded?.records || []) {
-            const parsedMeta = xdr.TransactionMeta.fromXDR(tx.meta, 'base64')
-            const operations = parsedMeta?.value()?.operations()
+            const parsedMeta = xdr.TransactionMeta.fromXdr(tx.meta, 'base64')
+            const operations = parsedMeta?.value?.operations
             for (const op of operations) {
-                for (const change of op.changes()) {
-                    if (change._arm !== 'state')
+                for (const change of op.changes) {
+                    if (change.type !== 'ledgerEntryState')
                         continue
-                    const targetChange = change.state?.()?.data?.()?.value?.()?.contract?.()?.contractId?.()
+                    const targetChange = change.state?.data?.value?.contract?.contractId
                     if (!targetChange)
                         continue
-                    const changedContractId = Address.contract(targetChange).toString()
+                    const changedContractId = Address.contract(targetChange.value).toString()
                     if (contractId !== changedContractId)
                         continue
-                    const instanceUpdated = change.state().data().contractData().toXDR('base64')
+                    const instanceUpdated = change.state.data.contractData.toXdr('base64')
                     if (instanceUpdated) {
                         return {xdr: instanceUpdated, lastModifiedLedgerSeq: tx.ledger}
                     }
@@ -96,18 +96,18 @@ const fetchPoolTxs = async (poolId, to, opts) => {
     let next = txs._links.next ? `${API_BASE}${txs._links.next.href}` : null
     while (next) {
         for (const tx of txs._embedded?.records || []) {
-            const parsedMeta = xdr.TransactionMeta.fromXDR(tx.meta, 'base64')
-            const operations = parsedMeta?.value()?.operations()
+            const parsedMeta = xdr.TransactionMeta.fromXdr(tx.meta, 'base64')
+            const operations = parsedMeta?.value?.operations
             for (const op of operations) {
-                for (const change of op.changes()) {
-                    if (change._arm !== 'state')
+                for (const change of op.changes) {
+                    if (change.type !== 'ledgerEntryState')
                         continue
-                    const targetChange = change.state?.()?.data?.()?.value?.()?.liquidityPoolId?.()
+                    const targetChange = change.state?.data?.value?.liquidityPoolId
                     if (!targetChange)
                         continue
                     if (poolId !== targetChange.toString('hex'))
                         continue
-                    const instanceUpdated = change.state().data().liquidityPool().toXDR('base64')
+                    const instanceUpdated = change.state.data.liquidityPool.toXdr('base64')
                     if (instanceUpdated) {
                         return {xdr: instanceUpdated, lastModifiedLedgerSeq: tx.ledger}
                     }

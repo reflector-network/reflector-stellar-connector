@@ -12,7 +12,7 @@ function generateInstanceLedgerKey(contractId) {
         new xdr.LedgerKeyContractData({
             contract: new Address(contractId).toScAddress(),
             key: xdr.ScVal.scvLedgerKeyContractInstance(),
-            durability: xdr.ContractDataDurability.persistent()
+            durability: xdr.ContractDataDurability.persistent
         })
     )
 }
@@ -24,7 +24,7 @@ function generateInstanceLedgerKey(contractId) {
  */
 function generateLiquidityPoolKey(poolId) {
     return xdr.LedgerKey.liquidityPool(
-        new xdr.LedgerKeyLiquidityPool({liquidityPoolId: xdr.PoolId.fromXDR(Buffer.from(poolId, 'hex'))})
+        new xdr.LedgerKeyLiquidityPool({liquidityPoolId: xdr.PoolId.fromXdr(Buffer.from(poolId, 'hex'))})
     )
 }
 
@@ -150,9 +150,9 @@ class RpcConnector {
                     chunks.push(currentChunk)
                 }
                 if (StrKey.isValidContract(contract))
-                    currentChunk.set(generateInstanceLedgerKey(contract).toXDR('base64'), contract)
+                    currentChunk.set(generateInstanceLedgerKey(contract).toXdr('base64'), contract)
                 else
-                    currentChunk.set(generateLiquidityPoolKey(contract).toXDR('base64'), contract)
+                    currentChunk.set(generateLiquidityPoolKey(contract).toXdr('base64'), contract)
             }
             return chunks
         }
@@ -207,13 +207,13 @@ class RpcConnector {
 
         const response = await invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: [xdr.LedgerKey.account(new xdr.LedgerKeyAccount({
             accountId: Keypair.fromPublicKey(source).xdrPublicKey()
-        })).toXDR('base64')]})
+        })).toXdr('base64')]})
 
         if (!response || !response.entries || response.entries.length === 0) {
             throw new Error('Source account not found')
         }
 
-        const sourceAccount = new Account(source, xdr.LedgerEntryData.fromXDR(response.entries[0].xdr, 'base64').value().seqNum().toString())
+        const sourceAccount = new Account(source, xdr.LedgerEntryData.fromXdr(response.entries[0].xdr, 'base64').value.seqNum.toString())
 
         //keep original source account for the restore transaction
         const transaction = new TransactionBuilder(sourceAccount, options)
@@ -221,10 +221,10 @@ class RpcConnector {
             .build()
 
         /**@type {rpc.Api.SimulateTransactionSuccessResponse} */
-        const simulationResponse = await invokeRpcMethod(this.rpcUrls, 'simulateTransaction', {transaction: transaction.toXDR()})
+        const simulationResponse = await invokeRpcMethod(this.rpcUrls, 'simulateTransaction', {transaction: transaction.toXdr()})
         if (simulationResponse.error)
             throw new Error(simulationResponse.error)
-        return simulationResponse.results.map(r => scValToNative(xdr.ScVal.fromXDR(r.xdr, 'base64')))
+        return simulationResponse.results.map(r => scValToNative(xdr.ScVal.fromXdr(r.xdr, 'base64')))
     }
 }
 

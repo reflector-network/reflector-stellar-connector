@@ -7,6 +7,24 @@ function stringify(obj) {
     return JSON.stringify(obj, (_key, value) => typeof value === 'bigint' ? value.toString() : value)
 }
 
+function wrapInFeeBumpResult(regularResultXdr) {
+    const regularResult = xdr.TransactionResult.fromXdr(regularResultXdr, 'base64')
+    const inner = new xdr.InnerTransactionResult({
+        feeCharged: regularResult.feeCharged,
+        result: xdr.InnerTransactionResultResult.txSuccess(regularResult.result.results),
+        ext: xdr.InnerTransactionResultExt.v0()
+    })
+    const feeBumpResult = new xdr.TransactionResult({
+        feeCharged: regularResult.feeCharged,
+        result: xdr.TransactionResultResult.txFeeBumpInnerSuccess(new xdr.InnerTransactionResultPair({
+            transactionHash: new Uint8Array(32),
+            result: inner
+        })),
+        ext: xdr.TransactionResultExt.v0()
+    })
+    return feeBumpResult.toXdr('base64')
+}
+
 describe('DexTradesAggregator', () => {
     const issuer = 'GB37DH4CM64RFUJ4LVNGTECDITMYELOBFUW7CR36644JZMFYZA3UBHQW'
     const baseAsset = `X:${issuer}`
@@ -82,11 +100,32 @@ describe('DexTradesAggregator', () => {
             }
         }))).toStrictEqual(stringify(resPrices))
     })
+
+    test('extracts trades from fee bump transactions', () => {
+        //tx fbcc50318a87735e205a5c669a62a7ecbf53eaf200860b089e633f3d5594d9e6
+        const regularTx = txFromXdr('+8xQMYqHc14gWlxmmmKn7L9T6vIAhgsInmM/PVWU2eYAAAAAAAACvAAAAAAAAAAHAAAAAAAAAA0AAAAAAAAAAQAAAALjSoMbN24RLsrw/XPwYEt7hIl3dI5mUTS9nXJQD3OwLQAAAAFYAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAACb2T3oAAAABQQAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAAnFGvgAAAAAPiVN7XPs81lENTnKL2MjNPdK6pyCHQuqhHn13jBqSmnAAAAAVgAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAAAJvZPegAAAAAAAAANAAAAAAAAAAEAAAACcMbWRmsKHVQMxAiQCeCsXNQKgct/7IyBsU3AlKKZTjUAAAABWAAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAC5a3VrAAAAAUIAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAABc/T/dQAAAAD4lTe1z7PNZRDU5yi9jIzT3Suqcgh0LqoR59d4wakppwAAAAFYAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAALlrdWsAAAAAAAAAAgAAAAAAAAABAAAAAi9AOIulLMyHYv21SYNdosuG3C8AJbQp3oNJfx8lc68eAAAAAUMAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAAAvuGYZQAAAAFYAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAAD/RgH4AAAAA+JU3tc+zzWUQ1OcovYyM090rqnIIdC6qEefXeMGpKacAAAABQwAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAC+4ZhlAAAAAAAAAAIAAAAAAAAAAQAAAAJyMzpEd4ghLdiyhqpns3HqDAoOEAWREo6SpuKFmRpGgwAAAAFEAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAAF4rcS0AAAABWAAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAAXnPmNAAAAAPiVN7XPs81lENTnKL2MjNPdK6pyCHQuqhHn13jBqSmnAAAAAUQAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAAAXitxLQAAAAAAAAACAAAAAAAAAAEAAAACwj/VRcajYbMJd7opb9uA3SX7D8KQVtJyw6+aXWHA4YMAAAABRQAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAEOFnr1AAAAAVgAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAAANi4QyAAAAAD4lTe1z7PNZRDU5yi9jIzT3Suqcgh0LqoR59d4wakppwAAAAFFAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAAQ4WevUAAAAAAAAAAgAAAAAAAAABAAAAAjv8fYpfM6dCXDnRjiheoiH5Zw7tqjmwFWlrVFhtd+zPAAAAAUYAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAAA9WI2LwAAAAFYAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAACkFMY8AAAAA+JU3tc+zzWUQ1OcovYyM090rqnIIdC6qEefXeMGpKacAAAABRgAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAD1YjYvAAAAAAAAAAIAAAAAAAAAAQAAAAKLW2jy7IyYFfyX217ofP5l3ybvb6Ta0YQviTsqkiWavgAAAAFHAAAAAAAAAHfxn4JnuRLRPF1aaZBDRNmCLcEtLfFHfvc4nLC4yDdAAAAAAP5K9KoAAAABWAAAAAAAAAB38Z+CZ7kS0TxdWmmQQ0TZgi3BLS3xR373OJywuMg3QAAAAAAkb9LZAAAAAPiVN7XPs81lENTnKL2MjNPdK6pyCHQuqhHn13jBqSmnAAAAAUcAAAAAAAAAd/Gfgme5EtE8XVppkENE2YItwS0t8Ud+9zicsLjIN0AAAAAA/kr0qgAAAAA=')
+        const feeBumpTx = {resultXdr: wrapInFeeBumpResult(regularTx.resultXdr), hash: ''}
+
+        const regularTrades = xdrParseResult(regularTx)
+        const feeBumpTrades = xdrParseResult(feeBumpTx)
+
+        expect(regularTrades.length).toBeGreaterThan(0)
+        expect(stringify(feeBumpTrades)).toStrictEqual(stringify(regularTrades))
+    })
+
+    test('returns null for failed transactions', () => {
+        const failedResult = new xdr.TransactionResult({
+            feeCharged: 100n,
+            result: xdr.TransactionResultResult.txTooLate(),
+            ext: xdr.TransactionResultExt.v0()
+        })
+        expect(xdrParseResult({resultXdr: failedResult.toXdr('base64'), hash: '', txHash: ''})).toBe(null)
+    })
 })
 
 function txFromXdr(resultXdr) {
     return {
-        resultXdr: xdr.TransactionResultPair.fromXDR(Buffer.from(resultXdr, 'base64')).result().toXDR('base64'),
+        resultXdr: xdr.TransactionResultPair.fromXdr(Buffer.from(resultXdr, 'base64')).result.toXdr('base64'),
         hash: ''
     }
 }

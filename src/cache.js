@@ -257,7 +257,7 @@ class TxCache {
                 return
 
             //try get trades from the transaction
-            const trades = xdrParseResult(tx)
+            const trades = xdrParseResult(tx) || []
             let ledgerData = tempTxData.get(tx.ledger)
             if (!ledgerData) {
                 ledgerData = {txs: [], hashes: new Set(), timestamp: txTimestamp}

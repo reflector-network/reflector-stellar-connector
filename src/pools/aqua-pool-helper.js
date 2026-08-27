@@ -15,16 +15,16 @@ function getAquaPoolContractValues(contractEntry, keys = []) {
     if (!Array.isArray(keys)) {
         throw new Error('Keys should be an array of strings')
     }
-    const data = contractEntry.value().val().instance()
+    const data = contractEntry.value.val.instance
     if (!data)
         return {}
     const storage = {}
-    const entries = data.storage()
+    const entries = data.storage
     for (const entry of entries) {
-        const key = scValToNative(entry.key())
+        const key = scValToNative(entry.key)
         if (keys.length > 0 && !keys.includes(key[0])) //key[0] because keys are stored as arrays in Aqua contracts
             continue
-        const val = scValToNative(entry.val())
+        const val = scValToNative(entry.val)
         storage[key] = val
     }
     return storage

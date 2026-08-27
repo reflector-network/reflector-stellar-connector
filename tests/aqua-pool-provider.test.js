@@ -109,6 +109,23 @@ describe('AquaPoolProvider on-disk cache', () => {
             expect(fs.existsSync(cacheFile)).toBe(false)
             expect(console.error).toHaveBeenCalled()
         })
+
+        it('runs a single refresh for concurrent callers without tmp-file rename races', async () => {
+            provider.configure(cacheDir)
+            provider.__loadPools = jest.fn().mockImplementation(async () => {
+                await new Promise(resolve => setTimeout(resolve, 50)) //keep the refresh in-flight so callers overlap
+                return SAMPLE_POOLS
+            })
+            await Promise.all([
+                provider.__maybeRefreshPools(),
+                provider.__maybeRefreshPools(),
+                provider.__maybeRefreshPools()
+            ])
+            expect(provider.__loadPools).toHaveBeenCalledTimes(1)
+            expect(console.error).not.toHaveBeenCalled()
+            const written = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
+            expect(written).toEqual(SAMPLE_POOLS)
+        })
     })
 
     it('survives a "restart" by reusing a previously persisted snapshot', async () => {

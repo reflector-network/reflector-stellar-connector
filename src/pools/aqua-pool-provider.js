@@ -29,6 +29,13 @@ class AquaPoolProvider extends PoolProviderBase {
     __cacheFile = null
 
     /**
+     * In-flight refresh shared by concurrent callers to prevent duplicate loads and cache persistence races
+     * @type {Promise|null}
+     * @private
+     */
+    __refreshPromise = null
+
+    /**
      * Configure on-disk cache location and load any existing snapshot.
      * @param {string} cacheDir - directory where the cache file is stored
      */
@@ -111,6 +118,10 @@ class AquaPoolProvider extends PoolProviderBase {
     }
 
     async __maybeRefreshPools() {
+        if (this.__refreshPromise) { //refresh already in progress - wait for it instead of starting another one
+            await this.__refreshPromise
+            return
+        }
         const now = Date.now()
         const trimmedTs = normalizeTimestamp(now, 60 * 60 * 1000) //trim to hours in order to refresh every 60 minutes
         if (trimmedTs <= this.__lastUpdated)
@@ -120,15 +131,20 @@ class AquaPoolProvider extends PoolProviderBase {
             console.warn({msg: 'Aqua pool refresh in cooldown — using stale pool list', failedAt: this.__failedAt, retryAfter: this.__failedAt + AQUA_FAILURE_COOLDOWN_MS})
             return
         }
-        try {
-            this.__cached = await this.__loadPools()
-            this.__lastUpdated = trimmedTs
-            this.__failedAt = 0
-            await this.__persistCache()
-        } catch (err) {
-            this.__failedAt = now
-            console.error({msg: `Error loading pool list for ${this.constructor.name} provider`, err})
-        }
+        this.__refreshPromise = (async () => {
+            try {
+                this.__cached = await this.__loadPools()
+                this.__lastUpdated = trimmedTs
+                this.__failedAt = 0
+                await this.__persistCache()
+            } catch (err) {
+                this.__failedAt = now
+                console.error({msg: `Error loading pool list for ${this.constructor.name} provider`, err})
+            } finally {
+                this.__refreshPromise = null
+            }
+        })()
+        await this.__refreshPromise
     }
 
     /**

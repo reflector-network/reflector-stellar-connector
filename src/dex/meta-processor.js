@@ -20,18 +20,15 @@ const {adjustPrecision} = require('../utils')
  * @return {Trade[]|null}
  */
 function xdrParseResult(tx) {
-    const innerResult = xdr.TransactionResult.fromXDR(tx.resultXdr, 'base64').result()
-    const txResultState = innerResult.switch()
-    if (txResultState.value < 0)
-        return null //tx failed
+    const innerResult = xdr.TransactionResult.fromXdr(tx.resultXdr, 'base64').result
     try {
-        if (innerResult._switch.value < 0) //failed tx
+        if (innerResult.type !== 'txSuccess' && innerResult.type !== 'txFeeBumpInnerSuccess') //failed tx
             return null
         let opResults
-        if (innerResult._arm === 'innerResultPair') { //fee bump tx
-            opResults = innerResult.innerResultPair().result().result().results()
+        if (innerResult.innerResultPair !== undefined) { //fee bump tx
+            opResults = innerResult.innerResultPair.result.result.results
         } else { //regular tx
-            opResults = innerResult.results()
+            opResults = innerResult.results
         }
         return (opResults || []).map(opR => parseRawOpResult(opR, tx.txHash)).flat().filter(v => !!v)
     } catch (err) {
@@ -41,18 +38,17 @@ function xdrParseResult(tx) {
 }
 
 function parseRawOpResult(rawOpResult, txHash) {
-    const inner = rawOpResult.tr()
+    const inner = rawOpResult.tr
     if (inner === undefined)
         return null //"opNoAccount" Case
-    const opResult = inner.value()
-    const successOpResultType = opResult.switch()
-    switch (successOpResultType.name) {
+    const opResult = inner.value
+    switch (opResult.type) {
         case 'pathPaymentStrictReceiveSuccess':
         case 'pathPaymentStrictSendSuccess':
-            return opResult.value().offers().map(claimedOffer => processDexTrade(claimedOffer, txHash))
+            return opResult.value.offers.map(claimedOffer => processDexTrade(claimedOffer, txHash))
         case 'manageSellOfferSuccess':
         case 'manageBuyOfferSuccess':
-            return opResult.value().offersClaimed().map(claimedOffer => processDexTrade(claimedOffer, txHash))
+            return opResult.value.offersClaimed.map(claimedOffer => processDexTrade(claimedOffer, txHash))
         default:
             return null
     }
@@ -66,23 +62,22 @@ function parseRawOpResult(rawOpResult, txHash) {
  */
 function processDexTrade(claimedAtom, txHash) {
     let type
-    switch (claimedAtom.arm()) {
-        case 'v0':
-        case 'orderBook':
+    switch (claimedAtom.type) {
+        case 'claimAtomTypeV0':
+        case 'claimAtomTypeOrderBook':
             type = 'offer'
             break
-        case 'liquidityPool':
+        case 'claimAtomTypeLiquidityPool':
             type = 'pool'
             break
         default:
-            throw new Error(`Unsupported claimed atom type: ` + claimedAtom.arm())
+            throw new Error(`Unsupported claimed atom type: ` + claimedAtom.type)
     }
-    const value = claimedAtom.value()
     const res = {
         type,
         //all trade amounts are in 7-digit precision, so we need to adjust them to get correct values
-        amountSold: adjustPrecision(value.amountSold()._value, 7),
-        amountBought: adjustPrecision(value.amountBought()._value, 7)
+        amountSold: adjustPrecision(claimedAtom.value.amountSold, 7),
+        amountBought: adjustPrecision(claimedAtom.value.amountBought, 7)
     }
     if (!res.amountSold || !res.amountBought)
         return null
@@ -92,8 +87,8 @@ function processDexTrade(claimedAtom, txHash) {
             return 'XLM'
         return assetCode
     }
-    res.assetSold = getAssetCode(value.assetSold())
-    res.assetBought = getAssetCode(value.assetBought())
+    res.assetSold = getAssetCode(claimedAtom.value.assetSold)
+    res.assetBought = getAssetCode(claimedAtom.value.assetBought)
     res.txHash = txHash
     return res
 }

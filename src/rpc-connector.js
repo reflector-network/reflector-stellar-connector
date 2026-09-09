@@ -138,49 +138,56 @@ class RpcConnector {
     async loadContractInstances(contracts) {
         if (!contracts || contracts.length === 0)
             return new Map() //nothing to load
-        //create contract props mapping
-        const generateKeys = () => {
-            const maxEntries = 200 //max entries per request
-
-            let currentChunk = new Map() //current chunk of keys
-            const chunks = [currentChunk]
-            for (const contract of contracts) {
-                if (currentChunk.size >= maxEntries) { //max entries per request
-                    currentChunk = new Map()
-                    chunks.push(currentChunk)
-                }
-                if (StrKey.isValidContract(contract))
-                    currentChunk.set(generateInstanceLedgerKey(contract).toXdr('base64'), contract)
-                else
-                    currentChunk.set(generateLiquidityPoolKey(contract).toXdr('base64'), contract)
-            }
-            return chunks
+        //map ledger keys to contract IDs
+        const keyMapping = new Map()
+        for (const contract of contracts) {
+            const key = StrKey.isValidContract(contract)
+                ? generateInstanceLedgerKey(contract)
+                : generateLiquidityPoolKey(contract)
+            keyMapping.set(key.toXdr('base64'), contract)
         }
-        const keyChunks = generateKeys()
         for (let i = 0; i < 3; i++) { //max 3 attempts
             try {
+                const entries = await this.loadLedgerEntries([...keyMapping.keys()])
                 const instances = new Map()
-                const promises = []
-                for (const chunk of keyChunks) {
-                    const promise = invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: [...chunk.keys()]})
-                        .then(chunkData => {
-                            if (chunkData?.entries) {
-                                chunkData.entries.forEach(entry => {
-                                    //map entry to contract ID
-                                    const contractId = chunk.get(entry.key)
-                                    instances.set(contractId, entry)
-                                })
-                            }
-                        })
-                    promises.push(promise)
+                for (const entry of entries) {
+                    //map entry to contract ID
+                    const contractId = keyMapping.get(entry.key)
+                    if (contractId) {
+                        instances.set(contractId, entry)
+                    }
                 }
-                await Promise.all(promises)
                 return instances
             } catch (e) {
                 console.warn({err: e, msg: 'Failed getLedgerEntries request'})
             }
         }
         throw new Error('Failed to load contracts data from RPC')
+    }
+
+    /**
+     * Load arbitrary ledger entries from RPC (chunked to respect the per-request key limit)
+     * @param {string[]} keys - base64 ledger keys
+     * @return {Promise<{key: string, xdr: string, lastModifiedLedgerSeq: number}[]>} - existing entries (missing keys are omitted)
+     */
+    async loadLedgerEntries(keys) {
+        if (!keys || keys.length === 0)
+            return []
+        const maxEntries = 200 //max entries per request
+        const chunks = []
+        for (let i = 0; i < keys.length; i += maxEntries) {
+            chunks.push(keys.slice(i, i + maxEntries))
+        }
+        const entries = []
+        await Promise.all(chunks.map(chunk =>
+            invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: chunk})
+                .then(chunkData => {
+                    if (chunkData?.entries) {
+                        entries.push(...chunkData.entries)
+                    }
+                })
+        ))
+        return entries
     }
 
     async getTransaction(hash) {

@@ -1,34 +1,5 @@
-const {scValToNative, xdr} = require('@stellar/stellar-sdk')
-const {DEFAULT_DECIMALS, adjustPrecision} = require('../utils')
-const {extractInstanceStorage} = require('./utils')
-
-/**
- * Returns native storage
- * @param {xdr.LedgerEntryData} contractEntry - contract data entry
- * @param {string[]} [keys] - keys to extract from storage (optional)
- * @returns {object}
- */
-function getAquaPoolContractValues(contractEntry, keys = []) {
-    if (!contractEntry) {
-        throw new Error('Contract entry is required')
-    }
-    if (!Array.isArray(keys)) {
-        throw new Error('Keys should be an array of strings')
-    }
-    const data = contractEntry.value.val.instance
-    if (!data)
-        return {}
-    const storage = {}
-    const entries = data.storage
-    for (const entry of entries) {
-        const key = scValToNative(entry.key)
-        if (keys.length > 0 && !keys.includes(key[0])) //key[0] because keys are stored as arrays in Aqua contracts
-            continue
-        const val = scValToNative(entry.val)
-        storage[key] = val
-    }
-    return storage
-}
+const {DEFAULT_DECIMALS, adjustPrecision} = require('../../utils')
+const {extractInstanceStorage, getContractInstanceValues} = require('../utils')
 
 const numberOfCoins = 2 //we only support 2-token pools
 const numberOfCoinsBigInt = BigInt(numberOfCoins)
@@ -169,7 +140,9 @@ function compute_d(reserves, amp) {
 }
 
 /**
- * Calculate the price of the pool based on the reserves and stable data
+ * Calculate the price of the pool based on the reserves and stable data.
+ * Probes the swap math with 1% of the smaller reserve, so the estimate stays close
+ * to the marginal price regardless of pool depth.
  * @param {BigInt[]} reserves - Array of reserves, first element is base asset reserve, second is quote asset reserve
  * @param {Object} stableData - Stable pool data containing initial and future amplification coefficients and fee
  * @returns {BigInt} - The calculated price in the quote asset
@@ -186,12 +159,15 @@ function calculatePrice(reserves, stableData) {
     }
     //10 ^ 14
     const tenToFourteen = 10n ** 14n
-    const aDy = calculateDy(0, 1, tenToFourteen, reserves, stableData.fee, amp)
-    const bDy = calculateDy(1, 0, tenToFourteen, reserves, stableData.fee, amp)
-    //pool too shallow to price a 10^14 swap in either direction
+    const probe = (sellReserve < buyReserve ? sellReserve : buyReserve) / 100n
+    if (probe === 0n) //pool too shallow to derive a meaningful probe
+        return 0n
+    const aDy = calculateDy(0, 1, probe, reserves, stableData.fee, amp)
+    const bDy = calculateDy(1, 0, probe, reserves, stableData.fee, amp)
+    //pool too shallow to price the probe swap in either direction
     if (aDy <= 0n || bDy <= 0n)
         return 0n
-    return (aDy + tenToFourteen * tenToFourteen / bDy) / 2n
+    return (aDy * tenToFourteen / probe + probe * tenToFourteen / bDy) / 2n
 }
 
 /**
@@ -201,11 +177,18 @@ function calculatePrice(reserves, stableData) {
  * @return {{reserves: BigInt[], tokens: string[], stableData: {initialA: bigint, initialATime: bigint, futureA: bigint, futureATime: bigint, fee: bigint}}} - reserves array. First element is base asset reserve, second is quote asset reserve.
  */
 function extractAquaPoolData(contractData, tokenMeta) {
-    const storage = getAquaPoolContractValues(extractInstanceStorage(contractData), ['ReserveA', 'ReserveB', 'Reserves', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
-    const reserves = storage.ReserveA !== undefined
-        ? [storage.ReserveA, storage.ReserveB]
-        : [storage.Reserves[0], storage.Reserves[1]]
-    const tokens = storage.Tokens || [storage.TokenA, storage.TokenB]
+    const storage = getContractInstanceValues(extractInstanceStorage(contractData), ['ReserveA', 'ReserveB', 'Reserves', 'Reserve0', 'Reserve1', 'Decimals', 'Tokens', 'TokenA', 'TokenB', 'Token0', 'Token1', 'Slot0', 'InitialA', 'InitialATime', 'FutureA', 'FutureATime', 'Fee'])
+    let reserves
+    let tokens
+    if (storage.Reserve0 !== undefined) { //concentrated pool
+        reserves = [storage.Reserve0, storage.Reserve1]
+        tokens = [storage.Token0, storage.Token1]
+    } else {
+        reserves = storage.ReserveA !== undefined
+            ? [storage.ReserveA, storage.ReserveB]
+            : [storage.Reserves[0], storage.Reserves[1]]
+        tokens = storage.Tokens || [storage.TokenA, storage.TokenB]
+    }
     if (
         !tokens //no tokens found
         || new Set(tokens).size !== 2 //not exactly 2 unique tokens
@@ -235,11 +218,14 @@ function extractAquaPoolData(contractData, tokenMeta) {
             fee: BigInt(storage.Fee)
         }
     }
-    return {reserves, tokens, stableData}
+    let concentratedData = undefined
+    if (storage.Slot0) {
+        concentratedData = {sqrtPriceX96: storage.Slot0.sqrt_price_x96, digits: [...digits]}
+    }
+    return {reserves, tokens, stableData, concentratedData}
 }
 
 module.exports = {
-    getAquaPoolContractValues,
     extractAquaPoolData,
     calculatePrice
 }

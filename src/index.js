@@ -66,7 +66,7 @@ function getVolumesData(cache, baseAsset, assets, network, from, period, count, 
             period,
             count
         )
-        const normalized = normalizeCrossVolumes([crossAssetTradesData, crossAssetPoolsData], count, assets.length)
+        const normalized = normalizeCrossVolumes([crossAssetTradesData, crossAssetPoolsData], count, assets.length, crossAsset)
         volumesData.push(...normalized)
     }
     return volumesData
@@ -102,9 +102,10 @@ function getPrice(volumeData) {
  * @param {Array} volumesData - cross-pair accumulators, one row per source
  * @param {number} count - number of periods
  * @param {number} assetCount - number of tracked assets
+ * @param {string} crossAsset - cross-price asset (for logging)
  * @return {Array}
  */
-function normalizeCrossVolumes(volumesData, count, assetCount) {
+function normalizeCrossVolumes(volumesData, count, assetCount, crossAsset) {
     const sourceCount = volumesData.length
     const result = Array.from({length: sourceCount}, () =>
         Array.from({length: count}, () =>
@@ -117,6 +118,7 @@ function normalizeCrossVolumes(volumesData, count, assetCount) {
         const crossToBaseRate = getPrice(volumesData.map(src => src?.[period]?.[0]))
         if (crossToBaseRate === 0n)
             continue //skip period if no crossAsset/baseAsset data available
+        console.debug({msg: 'Cross rate applied', crossAsset, period, crossToBaseRate: crossToBaseRate.toString()})
         for (let c = 0; c < assetCount; c++) {
             for (let src = 0; src < sourceCount; src++) {
                 //slot c + 1 because slot 0 is the baseAsset accumulator
@@ -147,7 +149,7 @@ class StellarProvider {
         }
         this.connector = new RpcConnector(rpcUrls, network)
         this.cache = new TxCache(this.connector)
-        configurePools(cacheDir)
+        configurePools(cacheDir, this.connector)
         await Promise.resolve()
     }
 
@@ -185,6 +187,7 @@ class StellarProvider {
             .map(() => Array.from({length: assets.length}).map(() => null))
         for (let i = 0; i < count; i++) {
             const ts = from + period * i
+            const summary = []
             for (let j = 0; j < assets.length; j++) {
                 const assetVolumes = volumes.map(v => v?.[i]?.[j])
                 const {volume, quoteVolume} = aggregateVolumes(assetVolumes)
@@ -193,6 +196,13 @@ class StellarProvider {
                     quoteVolume,
                     ts
                 }]
+                if (volume > 0n || quoteVolume > 0n) {
+                    summary.push({asset: assets[j], volume: volume.toString(), quoteVolume: quoteVolume.toString()})
+                }
+            }
+            //compact always-on trail of the final per-asset values handed to the node
+            if (summary.length > 0) {
+                console.info({msg: 'Volumes aggregated', baseAsset, ts, volumes: summary})
             }
         }
         return data

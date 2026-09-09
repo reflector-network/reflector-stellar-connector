@@ -1,5 +1,5 @@
 /*eslint-disable no-undef */
-const StellarLiquidityPoolProvider = require('../src/pools/stellar-liquidity-pool-provider')
+const StellarLiquidityPoolProvider = require('../src/pools/stellar/stellar-liquidity-pool-provider')
 const PoolType = require('../src/pools/pool-type')
 
 //mock console

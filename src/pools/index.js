@@ -1,20 +1,24 @@
-const AquaPoolProvider = require('./aqua-pool-provider')
+const AquaPoolProvider = require('./aqua/aqua-pool-provider')
 const PoolsDataAggregator = require('./pools-data-aggregator')
-const StellarLiquidityPoolProvider = require('./stellar-liquidity-pool-provider')
+const StellarLiquidityPoolProvider = require('./stellar/stellar-liquidity-pool-provider')
+const SushiPoolProvider = require('./sushi/sushi-pool-provider')
 
 /**
  * @typedef {import('@stellar/stellar-sdk').Asset} Asset
  * @typedef {import('../cache')} TxCache
+ * @typedef {import('../rpc-connector')} RpcConnector
  * @typedef {import('../asset-volumes-accumulator')} AssetVolumesAccumulator
  * @typedef {import('./pool-provider-base')} PoolProviderBase
  */
 
 const aquaPoolProvider = new AquaPoolProvider()
 const liquidityPoolProvider = new StellarLiquidityPoolProvider()
+const sushiPoolProvider = new SushiPoolProvider()
 
 const poolProviders = [
     aquaPoolProvider,
-    liquidityPoolProvider
+    liquidityPoolProvider,
+    sushiPoolProvider
 ]
 
 /**
@@ -88,11 +92,13 @@ async function loadSingleProviderData(provider, baseAsset, assets, network) {
 }
 
 /**
- * Configure pool providers that need on-disk persistence.
+ * Configure pool providers that need on-disk persistence or RPC access.
  * @param {string} cacheDir - directory where pool provider caches are stored
+ * @param {RpcConnector} rpcConnector - RPC connector for providers that discover pools on-chain
  */
-function configure(cacheDir) {
+function configure(cacheDir, rpcConnector) {
     aquaPoolProvider.configure(cacheDir)
+    sushiPoolProvider.configure(rpcConnector)
 }
 
 module.exports = {

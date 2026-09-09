@@ -67,7 +67,7 @@ describe('StellarProvider', () => {
         await provider.init({rpcUrls: ['url1', 'url2'], network: 'testnet', cacheDir})
         expect(provider.connector).toBeInstanceOf(RpcConnector)
         expect(provider.cache).toBeInstanceOf(TxCache)
-        expect(configurePools).toHaveBeenCalledWith(cacheDir)
+        expect(configurePools).toHaveBeenCalledWith(cacheDir, provider.connector)
     })
 
     test('getData returns correct structure', async () => {

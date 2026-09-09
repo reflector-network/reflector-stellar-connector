@@ -46,7 +46,7 @@ describe('RpcConnector.loadContractInstances', () => {
         invokeRpcMethod
             .mockRejectedValueOnce(new Error('fail1'))
             .mockRejectedValueOnce(new Error('fail2'))
-            .mockResolvedValueOnce({entries: [{key: 'mocked-xdr-key', xdr: 'xdr', lastModifiedLedger: 1, liveUntilLedgerSeq: 10}]})
+            .mockResolvedValueOnce({entries: [{key: 'AAAABgAAAAEltPzYWa7C+mNIQ4xImzw8EMmLbSG+T9PLMMtolT75dwAAABQAAAAB', xdr: 'xdr', lastModifiedLedger: 1, liveUntilLedgerSeq: 10}]})
 
         const result = await connector.loadContractInstances(contracts)
         expect(result.size).toBe(1)

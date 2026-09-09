@@ -2,7 +2,17 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const AquaPoolProvider = require('../src/pools/aqua-pool-provider')
+const AquaPoolProvider = require('../src/pools/aqua/aqua-pool-provider')
+
+jest.mock('../src/pools/aqua/aqua-pool-helper', () => {
+    const actual = jest.requireActual('../src/pools/aqua/aqua-pool-helper')
+    return {
+        ...actual,
+        extractAquaPoolData: jest.fn(actual.extractAquaPoolData) //mock only the XDR boundary, keep price math real
+    }
+})
+const {extractAquaPoolData, calculatePrice} = require('../src/pools/aqua/aqua-pool-helper')
+const {calculatePoolVolumes, calculateConcentratedPrice} = require('../src/pools/utils')
 
 const CACHE_FILENAME = 'aqua-pools.json'
 
@@ -125,6 +135,56 @@ describe('AquaPoolProvider on-disk cache', () => {
             expect(console.error).not.toHaveBeenCalled()
             const written = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
             expect(written).toEqual(SAMPLE_POOLS)
+        })
+    })
+
+    describe('processPoolInstance for stable pools', () => {
+        //constant amplification (initialA === futureA, ramp finished in the past), no fee
+        const pastTimestamp = BigInt(Math.floor(Date.now() / 1000) - 3600)
+        const stableData = {
+            initialA: 100n,
+            initialATime: pastTimestamp - 7200n,
+            futureA: 100n,
+            futureATime: pastTimestamp,
+            fee: 0n
+        }
+
+        it('replaces stable pool reserves with min-corrected volumes', () => {
+            const reserves = [3083627186900000000n, 4000679061030000000n]
+            extractAquaPoolData.mockReturnValueOnce({reserves: [...reserves], tokens: ['TOKEN_C', 'TOKEN_D'], stableData})
+            const result = provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123)
+            expect(result.reserves).toEqual(calculatePoolVolumes(reserves, calculatePrice(reserves, stableData)))
+            //token0 is the scarcer side - kept as-is, with its stable-price value in the token1 slot
+            expect(result.reserves[0]).toBe(reserves[0])
+            expect(result.reserves[1]).toBeGreaterThan(reserves[0])
+            expect(result.reserves[1]).toBeLessThan(reserves[1])
+            expect(result.tokens).toEqual(['TOKEN_C', 'TOKEN_D'])
+        })
+
+        it('skips stable pools too shallow to price', () => {
+            extractAquaPoolData.mockReturnValueOnce({reserves: [1n, 1n], tokens: ['TOKEN_C', 'TOKEN_D'], stableData})
+            expect(provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123)).toBeNull()
+            expect(console.error).not.toHaveBeenCalled() //a shallow pool is not an error condition
+        })
+    })
+
+    describe('processPoolInstance for concentrated pools', () => {
+        it('replaces concentrated pool reserves with min-corrected volumes', () => {
+            const reserves = [3398582110570000000n, 3710021060590000000n]
+            const concentratedData = {sqrtPriceX96: 79246271960821347022979480869n, digits: [7, 7]}
+            extractAquaPoolData.mockReturnValueOnce({reserves: [...reserves], tokens: ['TOKEN_C', 'TOKEN_D'], concentratedData})
+            const result = provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123)
+            expect(result.reserves).toEqual(calculatePoolVolumes(reserves, calculateConcentratedPrice(concentratedData)))
+            //price > 1, so the token0 side is the scarcer one - kept as-is
+            expect(result.reserves[0]).toBe(reserves[0])
+            expect(result.tokens).toEqual(['TOKEN_C', 'TOKEN_D'])
+        })
+
+        it('skips concentrated pools with uninitialized price', () => {
+            const concentratedData = {sqrtPriceX96: 0n, digits: [7, 7]}
+            extractAquaPoolData.mockReturnValueOnce({reserves: [1000000000000000000n, 1000000000000000000n], tokens: ['TOKEN_C', 'TOKEN_D'], concentratedData})
+            expect(provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123)).toBeNull()
+            expect(console.error).not.toHaveBeenCalled()
         })
     })
 

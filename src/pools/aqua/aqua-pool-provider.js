@@ -1,10 +1,11 @@
 /*eslint-disable class-methods-use-this */
 const fs = require('fs')
 const path = require('path')
-const {adjustPrecision, encodeAssetContractId, normalizeTimestamp} = require('../utils')
+const {encodeAssetContractId, normalizeTimestamp} = require('../../utils')
+const {calculateConcentratedPrice, calculatePoolVolumes} = require('../utils')
+const PoolProviderBase = require('../pool-provider-base')
+const PoolType = require('../pool-type')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
-const PoolProviderBase = require('./pool-provider-base')
-const PoolType = require('./pool-type')
 
 const AQUA_API_HOST = 'amm-api.aqua.network'
 const AQUA_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
@@ -96,6 +97,9 @@ class AquaPoolProvider extends PoolProviderBase {
                     case 'stable':
                         type = 'stableswap'
                         break
+                    case 'concentrated':
+                        type = 'concentrated'
+                        break
                     default:
                         console.log({msg: 'Aquarius pool type not supported', pool_type: pool.pool_type, poolId: pool.address})
                 }
@@ -128,7 +132,7 @@ class AquaPoolProvider extends PoolProviderBase {
             return
         if (this.__failedAt && now - this.__failedAt < AQUA_FAILURE_COOLDOWN_MS) {
             //within failure cooldown - keep stale cache
-            console.warn({msg: 'Aqua pool refresh in cooldown — using stale pool list', failedAt: this.__failedAt, retryAfter: this.__failedAt + AQUA_FAILURE_COOLDOWN_MS})
+            console.warn({msg: 'Aqua pool refresh in cooldown - using stale pool list', failedAt: this.__failedAt, retryAfter: this.__failedAt + AQUA_FAILURE_COOLDOWN_MS})
             return
         }
         this.__refreshPromise = (async () => {
@@ -219,12 +223,31 @@ class AquaPoolProvider extends PoolProviderBase {
                 console.debug({msg: 'Skipping invalid pool', poolId: contractId, lastModifiedLedger})
                 return null
             }
-            if (poolData.stableData) {
-                console.debug({msg: 'Stable pool raw reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()], lastModifiedLedger})
-                poolData.reserves[0] = calculatePrice(poolData.reserves, poolData.stableData)
-                poolData.reserves[1] = adjustPrecision(1n, 0)
+            const rawReserves = [poolData.reserves[0].toString(), poolData.reserves[1].toString()]
+            const kind = poolData.stableData ? 'stableswap' : poolData.concentratedData ? 'concentrated' : 'constant_product'
+            let price = null
+            if (poolData.stableData || poolData.concentratedData) {
+                price = poolData.stableData
+                    ? calculatePrice(poolData.reserves, poolData.stableData)
+                    : calculateConcentratedPrice(poolData.concentratedData)
+                if (price <= 0n) { //pool too shallow or uninitialized - no signal
+                    console.debug({msg: 'Skipping pool with no computable price', poolId: contractId, kind, rawReserves, lastModifiedLedger})
+                    return null
+                }
+                poolData.reserves = calculatePoolVolumes(poolData.reserves, price)
             }
-            console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()], lastModifiedLedger})
+            //single consolidated entry with everything needed to reconstruct how the pool volumes were formed
+            console.debug({
+                msg: 'Pool data processed',
+                poolId: contractId,
+                kind,
+                rawReserves,
+                price: price === null ? undefined : price.toString(),
+                sqrtPriceX96: poolData.concentratedData?.sqrtPriceX96?.toString(),
+                digits: poolData.concentratedData?.digits,
+                volumes: [poolData.reserves[0].toString(), poolData.reserves[1].toString()],
+                lastModifiedLedger
+            })
             return poolData
         } catch (err) {
             console.error({msg: 'Error processing pool', poolId: contractId, err})

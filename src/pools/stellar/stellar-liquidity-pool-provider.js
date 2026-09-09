@@ -1,9 +1,9 @@
 /*eslint-disable class-methods-use-this */
 const {Asset, getLiquidityPoolId, LiquidityPoolAsset, xdr, StrKey} = require('@stellar/stellar-sdk')
-const {adjustPrecision, convertToStellarAsset, DEFAULT_DECIMALS, encodeXDRAssetToContractId} = require('../utils')
-const PoolProviderBase = require('./pool-provider-base')
-const PoolType = require('./pool-type')
-const {extractInstanceStorage} = require('./utils')
+const {adjustPrecision, convertToStellarAsset, DEFAULT_DECIMALS, encodeXDRAssetToContractId} = require('../../utils')
+const PoolProviderBase = require('../pool-provider-base')
+const PoolType = require('../pool-type')
+const {extractInstanceStorage} = require('../utils')
 
 
 function extractPoolData(contractData, network) {
@@ -91,7 +91,14 @@ class StellarLiquidityPoolProvider extends PoolProviderBase {
                 console.debug({msg: 'Skipping invalid pool', poolId: contractId, lastModifiedLedger})
                 return null
             }
-            console.debug({msg: 'Pool reserves', poolId: contractId, reserves: [poolData.reserves[0].toString(), poolData.reserves[1].toString()], lastModifiedLedger})
+            //single consolidated entry with everything needed to reconstruct how the pool volumes were formed
+            console.debug({
+                msg: 'Pool data processed',
+                poolId: contractId,
+                kind: 'classic',
+                volumes: [poolData.reserves[0].toString(), poolData.reserves[1].toString()],
+                lastModifiedLedger
+            })
             return poolData
         } catch (err) {
             console.error({msg: 'Error processing pool', poolId: contractId, err})

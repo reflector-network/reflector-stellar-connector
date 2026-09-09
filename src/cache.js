@@ -215,6 +215,7 @@ class TxCache {
                 if (isNaN(res) || res < 0 || res > 255)
                     throw new Error(`Invalid decimals value for token ${token}: ${result[0]}`)
                 this.tokensMeta.set(token, {decimals: res})
+                console.info({msg: 'Token decimals loaded', token, decimals: res})
             }).catch(err => {
                 console.error({msg: 'Error loading token decimals', token, err})
                 this.tokensMeta.set(token, {failedAt: now}) //set empty meta to avoid repeated failed attempts
@@ -319,6 +320,9 @@ class TxCache {
                     data.poolData = new Map()
                 //set pool data
                 data.poolData.set(contractId, {reserves, tokens})
+            }
+            if (targetTimestampData.size > 1) { //multi-slot backfill is the interesting case; the current slot is implied by the processing entry
+                console.debug({msg: 'Pool data attached', poolId: contractId, ledger: poolLedger, timestamps: [...targetTimestampData.keys()]})
             }
         }
         //mark current slot as worker-visited even if no pools applied

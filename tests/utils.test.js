@@ -59,8 +59,8 @@ describe('adjustPrecision()', () => {
     })
 
     it('should handle large diff without precision loss', () => {
-        // 10 ** 20 loses precision as Number (becomes 100000000000000000000 but floating point)
-        // BigInt exponentiation should be exact
+        //10 ** 20 loses precision as Number (becomes 100000000000000000000 but floating point)
+        //BigInt exponentiation should be exact
         const value = 1n
         const result = adjustPrecision(value, 0, 20)
         expect(result).toEqual(100000000000000000000n)
@@ -73,7 +73,7 @@ describe('adjustPrecision()', () => {
     })
 
     it('should handle diff beyond safe integer exponent range', () => {
-        // 10 ** 18 as Number is 1000000000000000000 but 10 ** 19 starts losing precision
+        //10 ** 18 as Number is 1000000000000000000 but 10 ** 19 starts losing precision
         const value = 7n
         const result = adjustPrecision(value, 0, 19)
         expect(result).toEqual(70000000000000000000n)

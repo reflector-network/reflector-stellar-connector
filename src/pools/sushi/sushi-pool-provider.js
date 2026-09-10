@@ -15,17 +15,19 @@ const FEE_TIERS = [100, 500, 3000, 10000]
 class SushiPoolProvider extends PoolProviderBase {
 
     /**
-     * @type {RpcConnector|null}
+     * RPC connectors for factory pool lookups, keyed by network passphrase.
+     * The provider instance is shared between data sources, so every network keeps its own connector
+     * @type {Map<string, RpcConnector>}
      * @private
      */
-    __rpc = null
+    __rpcConnectors = new Map()
 
     /**
-     * Set the RPC connector used for factory pool lookups
+     * Register the RPC connector used for factory pool lookups on the connector's network
      * @param {RpcConnector} rpcConnector - RPC connector instance
      */
     configure(rpcConnector) {
-        this.__rpc = rpcConnector
+        this.__rpcConnectors.set(rpcConnector.network, rpcConnector)
     }
 
     /**
@@ -45,8 +47,9 @@ class SushiPoolProvider extends PoolProviderBase {
      */
     async getTargetPools(baseAsset, assets, network) {
         try {
-            if (!this.__rpc) {
-                console.warn({msg: 'SushiSwap pool provider is not configured with an RPC connector'})
+            const rpc = this.__rpcConnectors.get(network)
+            if (!rpc) {
+                console.warn({msg: 'SushiSwap pool provider is not configured with an RPC connector', network})
                 return []
             }
             const baseToken = encodeAssetContractId(baseAsset, network)
@@ -63,7 +66,7 @@ class SushiPoolProvider extends PoolProviderBase {
             }
             if (keys.length === 0)
                 return []
-            const entries = await this.__rpc.loadLedgerEntries(keys)
+            const entries = await rpc.loadLedgerEntries(keys)
             const pools = new Set()
             for (const entry of entries) {
                 pools.add(parseGetPoolEntry(entry.xdr))

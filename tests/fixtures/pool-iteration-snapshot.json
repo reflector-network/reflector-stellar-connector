@@ -1,0 +1,2045 @@
+{
+  "tick-2": [
+    {
+      "poolId": "CA6PUJLBYKZKUEKLZJMKBZLEKP2OTHANDEOWSFF44FTSYLKQPIICCJBE",
+      "reserves": [
+        "1442543587088990000000",
+        "211548625822220000000"
+      ]
+    },
+    {
+      "poolId": "CB37QM6EHVBDDNK7MAVQESV7WPLKV6G36TR7MHAOYWPZXLPQUWSDOK4E",
+      "reserves": [
+        "780787944400000000",
+        "669969932480000000"
+      ]
+    },
+    {
+      "poolId": "CCKGQSQG5JLZBMYMB4HT6M4H7FUC3NK5C75MIHN6627LRAY5B2SYL2AD",
+      "reserves": [
+        "1749218437452280000000",
+        "117571871122440000000"
+      ]
+    },
+    {
+      "poolId": "CC2QQVENM4W4C6DW4WZGMZSW4WI6ZWFISHRWVXMTWPIAHMB77IOIP77C",
+      "reserves": [
+        "99885215160482",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CCP3PPN6A5GRAGZTQAXYWSROV4QQMEE3FOR2IXSYYVOXCXPMZRB2QAWZ",
+      "reserves": [
+        "17475066212740000000",
+        "5547281850000000"
+      ]
+    },
+    {
+      "poolId": "CCX2TYR4AQTPPMTZOIMP3YIBHAYLLSTXVP47PAGTL753PCQFSKV32MIA",
+      "reserves": [
+        "102433185272280000000",
+        "108961416983040000000"
+      ]
+    },
+    {
+      "poolId": "CDPF7GMA3OLVUBLEVKNKXKEFSS3EQAXN75RHT7DR4SYIHFS5LH5JOTD7",
+      "reserves": [
+        "5796518162390000000",
+        "24085118788470000000"
+      ]
+    },
+    {
+      "poolId": "CA6GAFOJCW4MGQQBUCQUSA3CLIH25G4SNKB2JHYKZCVWZTNW5VXMSC4O",
+      "reserves": [
+        "80177821012685420000000",
+        "25310892495500000000"
+      ]
+    },
+    {
+      "poolId": "CAC56QNJ2CX456TPC5S4MSOU3DBULG4TGN7AZ2SAYGBLD3GICFMZBIT2",
+      "reserves": [
+        "99995015624426",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CARCLMAPEV4GYZ3TTFJDQHSNC7PH4G22UIMMER6BZW5H2TYZWWMW7FOS",
+      "reserves": [
+        "11559728717560000000",
+        "1695539962640000000"
+      ]
+    },
+    {
+      "poolId": "CBRXOYKXPQI4EEA6KA35TUIYN5OJLNWMTIVDOMNOIL2BG5Y5LEDHUU7V",
+      "reserves": [
+        "86838001471147",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CCWNKTTMHZ4VRR3FYQT3G253MHOGRLUEVTO6YPENM7ZN65DGC345LHI6",
+      "reserves": [
+        "100047848307986",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "085c2e15e70e9e799e914fa687fbfa8562912519a8d9ddb734a96d981b46c713",
+      "reserves": [
+        "625521845120000000",
+        "760746900000000"
+      ]
+    },
+    {
+      "poolId": "0b8aafefa1a40476e886929db7ad9ea038a5ade60584737c04045c6d018871f4",
+      "reserves": [
+        "5641294750813460000000",
+        "1775377511060000000"
+      ]
+    },
+    {
+      "poolId": "3c3e0e25048c3a5662d30ba125023ee293f186ff3a4e6740bd6d9d35d1e93d3c",
+      "reserves": [
+        "38030000510000000",
+        "49661081759600000000"
+      ]
+    },
+    {
+      "poolId": "7a3b99b13f01fbb89754c9721b41aaafac773d0f6e222a7024aa9e4310a9debf",
+      "reserves": [
+        "55113502700000000",
+        "47472319120000000"
+      ]
+    },
+    {
+      "poolId": "a468d41d8e9b8f3c7209651608b74b7db7ac9952dcae0cdf24871d1d9c7b0088",
+      "reserves": [
+        "1354710886740000000000",
+        "198659151047460000000"
+      ]
+    },
+    {
+      "poolId": "a92f55a5607db30047635970af435e4332ebbaff8a7fa70a9158c2fd6c1ecd2b",
+      "reserves": [
+        "5772935222880000000",
+        "5774410898210000000"
+      ]
+    },
+    {
+      "poolId": "aee77f92cbec6d4545e0752ba2d462d76f0b12d4e7f2bada1fefbbfa5f24ee9f",
+      "reserves": [
+        "178735756728770000000",
+        "114846282350000000"
+      ]
+    },
+    {
+      "poolId": "CB7FKGSTHP75ORTIZGGMVUTQLEMVTSEOI4QORQPCABJSGTAATDFCE2YV",
+      "reserves": [
+        "37608499601710000000",
+        "905248300940000000"
+      ]
+    },
+    {
+      "poolId": "CBLPZUFE6WJ7FNOTZINEWFDFKHGDSQZOLVCYLGTAX4JC6OABNRWAFTI5",
+      "reserves": [
+        "16765489830000000",
+        "1125541430000000"
+      ]
+    },
+    {
+      "poolId": "CDUX476HQ4JZBPLLVEVRIVXDRKAGYDNDL7OLBE5DD37JXOUFI2NACXJ5",
+      "reserves": [
+        "375744908110000000",
+        "220750550000000"
+      ]
+    },
+    {
+      "poolId": "d8552731aaa12ea55cf8a87d393ba6eeb75fe11a6d2e38d83befbacc14024bdb",
+      "reserves": [
+        "3144606134592640000000",
+        "1843971984860000000"
+      ]
+    },
+    {
+      "poolId": "0d0c60454556bf2d5201495c058cc93bc5d94ce34227fae3897ed4ac859a7193",
+      "reserves": [
+        "323950950000000",
+        "4591730000000"
+      ]
+    },
+    {
+      "poolId": "11b02c42a6da15fd79d3995ffdbd33be702e01c5f09a10129cc4fbe0361b1475",
+      "reserves": [
+        "10815910000000",
+        "10925750000000"
+      ]
+    },
+    {
+      "poolId": "1a842d0ccd24227b9054b995697d384331ad52b2c71e879943ba0a2d580ade12",
+      "reserves": [
+        "23549950000000",
+        "250454300000000"
+      ]
+    },
+    {
+      "poolId": "27480d0483c8320ba4a707797526ffd67118e841491e0cbeb66db697bb66cccb",
+      "reserves": [
+        "1649195000000000",
+        "1551490250000000"
+      ]
+    },
+    {
+      "poolId": "2d4d8c3bc6d6f9acb5a8d3a2ca4764061f3b3c2b83a4f24b7334578bf4187e9f",
+      "reserves": [
+        "1358468297530000000",
+        "8437502500000000"
+      ]
+    },
+    {
+      "poolId": "328306d8d623aa358415f29fca051afbbe8f0c591c28bbcb78e80907deffb2a7",
+      "reserves": [
+        "207395509560000000",
+        "241292514420000000"
+      ]
+    },
+    {
+      "poolId": "5269d362dbda12177a7d5c7bd8a4e4db2703dbf916bc928c3ad028c5276c8dfa",
+      "reserves": [
+        "186402070000000",
+        "95690000000"
+      ]
+    },
+    {
+      "poolId": "55297c05bd28e16ddb00fc0f730907045fdbc79c37f1d8bfc8e323300510124a",
+      "reserves": [
+        "87202226190000000",
+        "58616130000000"
+      ]
+    },
+    {
+      "poolId": "568f32b324fea0027aa539c4387ae8cb48f325e5b6c1af449f64c97920dcd9b4",
+      "reserves": [
+        "5185360000000",
+        "21552430000000"
+      ]
+    },
+    {
+      "poolId": "6a31c0416cde84e63d4f4047267fac57fe5145317b343a960f0d6ba00258e3c7",
+      "reserves": [
+        "22313460000000",
+        "6199440000000"
+      ]
+    },
+    {
+      "poolId": "83884111bf5152ce690c84db55714cbe943f21221863a0bd91b34679a28dcf0b",
+      "reserves": [
+        "53977722550000000",
+        "39034120130000000"
+      ]
+    },
+    {
+      "poolId": "8d8cc7f51b42c7507d5642bafb25304e5bf3e1abbc7d49b58089cdb6484e84cd",
+      "reserves": [
+        "139856031070000000",
+        "81180680000000"
+      ]
+    },
+    {
+      "poolId": "972e2104808995ea7c4a1e9e9ba5112bd302d751d3730d9dc99d5df3bca623fc",
+      "reserves": [
+        "2556431400000000",
+        "2549832130000000"
+      ]
+    },
+    {
+      "poolId": "98659ee0658fd5636e1f0078764903950dc4fb75f77f444cab78c455d38f7576",
+      "reserves": [
+        "105336000000000",
+        "105840450000000"
+      ]
+    },
+    {
+      "poolId": "c172ebe8e2249c1de69695e2d24ed0d8156d2798996facd6ce7974ce1b4e9600",
+      "reserves": [
+        "100759331660000000",
+        "100960798290000000"
+      ]
+    },
+    {
+      "poolId": "c68483c527406b266a02039895eae978e3588f8f392a80082411a8ca1a914859",
+      "reserves": [
+        "1696755610000000",
+        "1709342570000000"
+      ]
+    },
+    {
+      "poolId": "c941868b109249b0659e4e52799039f8486529c9d0a531e1b6b5816a37cdb940",
+      "reserves": [
+        "1297998380000000",
+        "19339463530000000"
+      ]
+    },
+    {
+      "poolId": "ca86b534198c097c4cf3a03f04e069b3c2a4bf8ab13d904aa6123b16c54b79b0",
+      "reserves": [
+        "14357833490000000",
+        "594842908090000000"
+      ]
+    },
+    {
+      "poolId": "cf227a44e39d7cff8c927bc48c9b4c03b06ec76c9da8dde9ae6930888b583a68",
+      "reserves": [
+        "699678587460000000",
+        "48480350000000"
+      ]
+    },
+    {
+      "poolId": "dffe5b7037b88fe0ac31375bc842fea3ccb02ac507a7096ab93f7d26cab958bb",
+      "reserves": [
+        "1314053188530000000",
+        "977200740680000000"
+      ]
+    },
+    {
+      "poolId": "353c3ba62afb30e2fb4531ead8df7e99f6670933f1c120ec90644067a077a4d9",
+      "reserves": [
+        "26263270000000",
+        "178659260000000"
+      ]
+    },
+    {
+      "poolId": "60701bc00c2f1917b77b90b51254507fb218d00630cc7ab8e8261dfc57339ab6",
+      "reserves": [
+        "2813198830000000",
+        "22286060000000"
+      ]
+    },
+    {
+      "poolId": "62791f6275a700ef3efe92a7e71714bd6467d7e0ccc32aded2895e2e25cff9e9",
+      "reserves": [
+        "178964601770000000",
+        "219894430000000"
+      ]
+    },
+    {
+      "poolId": "78400f4e6d036e1f9de1da2668f9a6bb6352fd06e63f5233e7338d8fe1b4c39a",
+      "reserves": [
+        "432103180000000",
+        "590025050000000"
+      ]
+    },
+    {
+      "poolId": "907bfe03373ad55de001c4cf6f06aa5e6d35e8e9e23657bde1ea3f32a9dc8114",
+      "reserves": [
+        "16080502608030820000000",
+        "746790582730000000"
+      ]
+    },
+    {
+      "poolId": "CCSY43EHJAHT3NQDYKAMJXRFBEEH7OXDL3J3VNGO33UUSEXWNN27GBIZ",
+      "reserves": [
+        "117217209300000000",
+        "54905085822030000000"
+      ]
+    },
+    {
+      "poolId": "CCY2PXGMKNQHO7WNYXEWX76L2C5BH3JUW3RCATGUYKY7QQTRILBZIFWV",
+      "reserves": [
+        "456193752466160000000",
+        "212276767626171230000000"
+      ]
+    },
+    {
+      "poolId": "CDFNPMDIWKCTVCDP2K75RI5J4FIKLTSZBWBNLS4BQVT6AS67MRD5GV2V",
+      "reserves": [
+        "67172202090000000",
+        "144238603480170000000"
+      ]
+    },
+    {
+      "poolId": "CDYLKM3DGH5A6QA6QOIITPKG7C4DTZMS2HF75XURORACBHCR6AOE3K33",
+      "reserves": [
+        "652495244450000000",
+        "110980546870000000"
+      ]
+    },
+    {
+      "poolId": "d7e05cc6952ac57e3b3e6eefc0a845c756cdda978e6f626ecf1d915f918d7e84",
+      "reserves": [
+        "28977408643270000000",
+        "659612760000000"
+      ]
+    },
+    {
+      "poolId": "4e4c68baf2ea9ef222803b6f2063c08a35b4dd26225ddf08fea54254721f05b8",
+      "reserves": [
+        "68344965383050000000",
+        "13033232488131020000000"
+      ]
+    },
+    {
+      "poolId": "59fa1dc57433dcfbd2db7319d26cb3da1f28f2d8095a3ec36ad4ef9cadb0013e",
+      "reserves": [
+        "57750094287580000000",
+        "26853163434931970000000"
+      ]
+    },
+    {
+      "poolId": "CACX5646BHTJ3CMNDPDTQURAP5REOCUIICJWWQ26DVO3YYYG2UCKKWVY",
+      "reserves": [
+        "2415940220000000",
+        "334968750000000"
+      ]
+    },
+    {
+      "poolId": "CAQODUH4XNX2NTFVACRMO4UR7MA5RLSZA5ZQTHILQYGYYCFQ3LUATIGM",
+      "reserves": [
+        "6500118440350000000",
+        "61224483269900000000"
+      ]
+    },
+    {
+      "poolId": "CDE57N6XTUPBKYYDGQMXX7E7SLNOLFY3JEQB4MULSMR2AKTSAENGX2HC",
+      "reserves": [
+        "3088395942510000000",
+        "1439941114982290000000"
+      ]
+    },
+    {
+      "poolId": "CDPBOIGPIMZW7ZUHXHDEIE5FN4GXC5T7HCAHT6NKAIXMNNZWPBHC3W54",
+      "reserves": [
+        "8111633762080000000",
+        "49569237906260000000"
+      ]
+    },
+    {
+      "poolId": "18adc72c11a1397867c836ad2883944d2a71272090bceda8fe497da47f4a1e4a",
+      "reserves": [
+        "62957712401330000000",
+        "14397931451483280000000"
+      ]
+    },
+    {
+      "poolId": "2f8c0463703c57b77426f16cda80565fad91199f7cfb03dff40f4018c6adaf24",
+      "reserves": [
+        "4129577490000000",
+        "611753030000000"
+      ]
+    },
+    {
+      "poolId": "31aa7fba2459b51ccb8b986214f8713b04a9b3cdbfbb64e02744f231f7391283",
+      "reserves": [
+        "31937726790000000",
+        "4710153110000000"
+      ]
+    },
+    {
+      "poolId": "42b17d04a3545f42f096ded1ea5a74e2393316ff1e20f3644258dbf15d37d837",
+      "reserves": [
+        "22647730910000000",
+        "49468662850000000"
+      ]
+    },
+    {
+      "poolId": "461f6345f6b34f6b038f595ea282dad0b5fdcc15151186f2bb956a1a93bc430f",
+      "reserves": [
+        "330430467530000000",
+        "56123691420000000"
+      ]
+    },
+    {
+      "poolId": "4b37577074379887a3c633399445df29945bd3efda485309c0c0ae8cb572f98b",
+      "reserves": [
+        "2419460370000000",
+        "358977660000000"
+      ]
+    },
+    {
+      "poolId": "4b7890d7699dbfbc44d581ddb9c3baa0b65e3aeb07f093b76ec7ff6c9ec2cd60",
+      "reserves": [
+        "2565097933080000000",
+        "376397571360000000"
+      ]
+    },
+    {
+      "poolId": "52d16f5b19fdb20244baeb338521e6574596caf0fd0c5fcee675122865598726",
+      "reserves": [
+        "22828734677400000000",
+        "5711432512844050000000"
+      ]
+    },
+    {
+      "poolId": "54111f0a14be039184cb23f5d01c1409d3ca5b1044604a2f24647c5be193c261",
+      "reserves": [
+        "27556489000000000",
+        "3790128780000000"
+      ]
+    },
+    {
+      "poolId": "5553416049889609c6f45c4cbe29e4207cc4d07c90294d2de7b12d392f294d5e",
+      "reserves": [
+        "91697281770000000",
+        "20053210807730000000"
+      ]
+    },
+    {
+      "poolId": "5af87fae05b76e76c423fc1cc592a45828a0773afea0ba0e12aa92a58bfbb4e3",
+      "reserves": [
+        "66964297778080000000",
+        "8449675978230000000"
+      ]
+    },
+    {
+      "poolId": "654907d50e873a22ed7760b55152545555f24f1cb7de1678fbb9d4cf44feaa7c",
+      "reserves": [
+        "1468504515120000000",
+        "3119968723644110000000"
+      ]
+    },
+    {
+      "poolId": "66b2286fa2cabdf1914abea058e3a18b1267643d818ae76dc1a5994fb22b9886",
+      "reserves": [
+        "11359998990000000",
+        "1373840793940000000"
+      ]
+    },
+    {
+      "poolId": "803bc08c94a556409f11e404d48acaf95cf52429e912b7108d9b549f91e3447f",
+      "reserves": [
+        "45102834410000000",
+        "273551252950000000"
+      ]
+    },
+    {
+      "poolId": "859035ab93b30f2c3e02db61cd01631955090ee82d3c53b34a1ed5741a511f40",
+      "reserves": [
+        "1075077892700000000",
+        "212164831730000000"
+      ]
+    },
+    {
+      "poolId": "b3daa024bd3b483c5a115c3512b0d2321d9a6c294e86a8a850efb9a4be26c663",
+      "reserves": [
+        "955186920000000",
+        "7727590000000"
+      ]
+    },
+    {
+      "poolId": "b97629bec616dcf2c32952bfb7605b36b2a9458165732728116e593df4e58645",
+      "reserves": [
+        "161212140530000000",
+        "3812353907930000000"
+      ]
+    },
+    {
+      "poolId": "bd5f863bbaecf5f9831dd68794308521566df827db3e4fbf1861f76045ef292f",
+      "reserves": [
+        "5560359840000000",
+        "3385211520000000"
+      ]
+    },
+    {
+      "poolId": "bdabb1a67a43d9865087024bcc5abc8757af89a3ac1a1de07cbde0af698d8af4",
+      "reserves": [
+        "19449716800000000",
+        "2847689290000000"
+      ]
+    },
+    {
+      "poolId": "d728f444239d7429c39ce0b0213a0e06be5559eef3f16ff6c975f6eb76b07d04",
+      "reserves": [
+        "4684717930000000",
+        "2470668570000000"
+      ]
+    },
+    {
+      "poolId": "eb4f9ada336e9afcd0841f9005a497ede339c3d48150a19ef1c53b760517ec77",
+      "reserves": [
+        "16517291670000000",
+        "2440015270000000"
+      ]
+    },
+    {
+      "poolId": "ee353fee796e1fa54a933ad7796480bd6411c069c2491a00bea6a0f885cca62c",
+      "reserves": [
+        "19916841270000000",
+        "2946574460000000"
+      ]
+    },
+    {
+      "poolId": "f18e8dbbf99edc6d4cbae9a1cd88aacc90983b2559dd48d2913d256cad34d92e",
+      "reserves": [
+        "35408665219840000000",
+        "3755346175650000000"
+      ]
+    },
+    {
+      "poolId": "03080574e064c5c3d6ba8eaa093f92485efa86fe30e0129370aa76f2eab73ab3",
+      "reserves": [
+        "176000000000000",
+        "2242625440000000"
+      ]
+    },
+    {
+      "poolId": "2311b900b9d8ea28231ed87e0b4de3dcb45934a42709fc38796eb2a050136cea",
+      "reserves": [
+        "95280807870000000",
+        "7192450000000"
+      ]
+    },
+    {
+      "poolId": "289c06daa943df14d1b30844455ac914ced9b02b5f7cf53759559b1c8fe9de38",
+      "reserves": [
+        "1602306660000000",
+        "2847586460000000"
+      ]
+    },
+    {
+      "poolId": "4b043c4997e2826ec33aaf08b2a380f8663badd794c4bc9e0c41e4d8d8fd800d",
+      "reserves": [
+        "770683892800000000",
+        "165029029107590000000"
+      ]
+    },
+    {
+      "poolId": "7d706bc60844082807a50fa4225bd13710497ff5891e7d34420045a93585d8bf",
+      "reserves": [
+        "745544921280000000",
+        "2360426000303180000000"
+      ]
+    },
+    {
+      "poolId": "9f6428eff6e26636da81ef5f514a2e8b7c3aac4973a7c7c29bd3027e62ea48c4",
+      "reserves": [
+        "618858990000000",
+        "619670310000000"
+      ]
+    },
+    {
+      "poolId": "a75ddfe01d96b77d19188a026ac3e54f2407a84f47b96481e06b03a3eb9e7543",
+      "reserves": [
+        "18991378090000000",
+        "122538517677770000000"
+      ]
+    },
+    {
+      "poolId": "ad5800ee28c9174bceb235a5e24bd60560b723a09ddddcb11bdac8854cfc848d",
+      "reserves": [
+        "292808220000000",
+        "952122030000000"
+      ]
+    },
+    {
+      "poolId": "b12bca2c5c2bd4b71be673d85bfebf697c5997487ff11a35b7063cfa737758fa",
+      "reserves": [
+        "1918711165040000000",
+        "386168138730000000"
+      ]
+    },
+    {
+      "poolId": "bb965f20ff4427cac2a7d4119cdc3d45ec716b6baa8c86b618b0e8083ada1d10",
+      "reserves": [
+        "9601510760000000",
+        "1149649777890000000"
+      ]
+    },
+    {
+      "poolId": "c023bcde92474731774802385d8f7a191c1fe91384d8beb91c87cdc9bee1bd6d",
+      "reserves": [
+        "20327850000000",
+        "54200251300000000"
+      ]
+    },
+    {
+      "poolId": "c772fe1b7a69e03e3229e1028f04d00a9fffa4f462795c2b061b7136caf06da1",
+      "reserves": [
+        "10217244710000000",
+        "2593549122010000000"
+      ]
+    },
+    {
+      "poolId": "c801d7d4feff7ba3673eeb8a8d0e27dc6395cb147909cee9d38a461fc7b98ed4",
+      "reserves": [
+        "7138055460000000",
+        "11204304110000000"
+      ]
+    },
+    {
+      "poolId": "e935b20340a8a5e7305a28ca53135b1891ee422353243cbdf0937a86e0789802",
+      "reserves": [
+        "34397485550000000",
+        "71662720000000"
+      ]
+    },
+    {
+      "poolId": "eb0eb1c27ab7658468667ca2e8327217d97a356df9d259b8c75200649fae8a83",
+      "reserves": [
+        "126029980000000",
+        "2335366270000000"
+      ]
+    }
+  ],
+  "tick-1": [
+    {
+      "poolId": "CA6PUJLBYKZKUEKLZJMKBZLEKP2OTHANDEOWSFF44FTSYLKQPIICCJBE",
+      "reserves": [
+        "1442543587088990000000",
+        "211548625822220000000"
+      ]
+    },
+    {
+      "poolId": "CB37QM6EHVBDDNK7MAVQESV7WPLKV6G36TR7MHAOYWPZXLPQUWSDOK4E",
+      "reserves": [
+        "780787944400000000",
+        "669969932480000000"
+      ]
+    },
+    {
+      "poolId": "CCKGQSQG5JLZBMYMB4HT6M4H7FUC3NK5C75MIHN6627LRAY5B2SYL2AD",
+      "reserves": [
+        "1749218437452280000000",
+        "117571871122440000000"
+      ]
+    },
+    {
+      "poolId": "CCX2TYR4AQTPPMTZOIMP3YIBHAYLLSTXVP47PAGTL753PCQFSKV32MIA",
+      "reserves": [
+        "102433185272280000000",
+        "108961416983040000000"
+      ]
+    },
+    {
+      "poolId": "CDPF7GMA3OLVUBLEVKNKXKEFSS3EQAXN75RHT7DR4SYIHFS5LH5JOTD7",
+      "reserves": [
+        "5796518162390000000",
+        "24085118788470000000"
+      ]
+    },
+    {
+      "poolId": "CAC56QNJ2CX456TPC5S4MSOU3DBULG4TGN7AZ2SAYGBLD3GICFMZBIT2",
+      "reserves": [
+        "99995015624426",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CARCLMAPEV4GYZ3TTFJDQHSNC7PH4G22UIMMER6BZW5H2TYZWWMW7FOS",
+      "reserves": [
+        "11559728717560000000",
+        "1695539962640000000"
+      ]
+    },
+    {
+      "poolId": "CC2QQVENM4W4C6DW4WZGMZSW4WI6ZWFISHRWVXMTWPIAHMB77IOIP77C",
+      "reserves": [
+        "99885215160482",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CCP3PPN6A5GRAGZTQAXYWSROV4QQMEE3FOR2IXSYYVOXCXPMZRB2QAWZ",
+      "reserves": [
+        "17475066212740000000",
+        "5547281850000000"
+      ]
+    },
+    {
+      "poolId": "CCWNKTTMHZ4VRR3FYQT3G253MHOGRLUEVTO6YPENM7ZN65DGC345LHI6",
+      "reserves": [
+        "100047848307986",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "085c2e15e70e9e799e914fa687fbfa8562912519a8d9ddb734a96d981b46c713",
+      "reserves": [
+        "625521845120000000",
+        "760746900000000"
+      ]
+    },
+    {
+      "poolId": "0b8aafefa1a40476e886929db7ad9ea038a5ade60584737c04045c6d018871f4",
+      "reserves": [
+        "5641294750813460000000",
+        "1775377511060000000"
+      ]
+    },
+    {
+      "poolId": "27480d0483c8320ba4a707797526ffd67118e841491e0cbeb66db697bb66cccb",
+      "reserves": [
+        "1649195000000000",
+        "1551490250000000"
+      ]
+    },
+    {
+      "poolId": "328306d8d623aa358415f29fca051afbbe8f0c591c28bbcb78e80907deffb2a7",
+      "reserves": [
+        "207395509560000000",
+        "241292514420000000"
+      ]
+    },
+    {
+      "poolId": "3c3e0e25048c3a5662d30ba125023ee293f186ff3a4e6740bd6d9d35d1e93d3c",
+      "reserves": [
+        "38030000510000000",
+        "49661081759600000000"
+      ]
+    },
+    {
+      "poolId": "7a3b99b13f01fbb89754c9721b41aaafac773d0f6e222a7024aa9e4310a9debf",
+      "reserves": [
+        "55113502700000000",
+        "47472319120000000"
+      ]
+    },
+    {
+      "poolId": "83884111bf5152ce690c84db55714cbe943f21221863a0bd91b34679a28dcf0b",
+      "reserves": [
+        "53977722550000000",
+        "39034120130000000"
+      ]
+    },
+    {
+      "poolId": "a468d41d8e9b8f3c7209651608b74b7db7ac9952dcae0cdf24871d1d9c7b0088",
+      "reserves": [
+        "1354710886740000000000",
+        "198659151047460000000"
+      ]
+    },
+    {
+      "poolId": "a92f55a5607db30047635970af435e4332ebbaff8a7fa70a9158c2fd6c1ecd2b",
+      "reserves": [
+        "5772935222880000000",
+        "5774410898210000000"
+      ]
+    },
+    {
+      "poolId": "aee77f92cbec6d4545e0752ba2d462d76f0b12d4e7f2bada1fefbbfa5f24ee9f",
+      "reserves": [
+        "178735756728770000000",
+        "114846282350000000"
+      ]
+    },
+    {
+      "poolId": "c172ebe8e2249c1de69695e2d24ed0d8156d2798996facd6ce7974ce1b4e9600",
+      "reserves": [
+        "100759331660000000",
+        "100960798290000000"
+      ]
+    },
+    {
+      "poolId": "c941868b109249b0659e4e52799039f8486529c9d0a531e1b6b5816a37cdb940",
+      "reserves": [
+        "1297998380000000",
+        "19339463530000000"
+      ]
+    },
+    {
+      "poolId": "CA6GAFOJCW4MGQQBUCQUSA3CLIH25G4SNKB2JHYKZCVWZTNW5VXMSC4O",
+      "reserves": [
+        "80177821012685420000000",
+        "25310892495500000000"
+      ]
+    },
+    {
+      "poolId": "ca86b534198c097c4cf3a03f04e069b3c2a4bf8ab13d904aa6123b16c54b79b0",
+      "reserves": [
+        "14357833490000000",
+        "594842908090000000"
+      ]
+    },
+    {
+      "poolId": "CB7FKGSTHP75ORTIZGGMVUTQLEMVTSEOI4QORQPCABJSGTAATDFCE2YV",
+      "reserves": [
+        "37608499601710000000",
+        "905248300940000000"
+      ]
+    },
+    {
+      "poolId": "CBLPZUFE6WJ7FNOTZINEWFDFKHGDSQZOLVCYLGTAX4JC6OABNRWAFTI5",
+      "reserves": [
+        "16765489830000000",
+        "1125541430000000"
+      ]
+    },
+    {
+      "poolId": "CBRXOYKXPQI4EEA6KA35TUIYN5OJLNWMTIVDOMNOIL2BG5Y5LEDHUU7V",
+      "reserves": [
+        "86838001471147",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CDUX476HQ4JZBPLLVEVRIVXDRKAGYDNDL7OLBE5DD37JXOUFI2NACXJ5",
+      "reserves": [
+        "375744908110000000",
+        "220750550000000"
+      ]
+    },
+    {
+      "poolId": "cf227a44e39d7cff8c927bc48c9b4c03b06ec76c9da8dde9ae6930888b583a68",
+      "reserves": [
+        "699678587460000000",
+        "48480350000000"
+      ]
+    },
+    {
+      "poolId": "d8552731aaa12ea55cf8a87d393ba6eeb75fe11a6d2e38d83befbacc14024bdb",
+      "reserves": [
+        "3144606134592640000000",
+        "1843971984860000000"
+      ]
+    },
+    {
+      "poolId": "0d0c60454556bf2d5201495c058cc93bc5d94ce34227fae3897ed4ac859a7193",
+      "reserves": [
+        "323950950000000",
+        "4591730000000"
+      ]
+    },
+    {
+      "poolId": "11b02c42a6da15fd79d3995ffdbd33be702e01c5f09a10129cc4fbe0361b1475",
+      "reserves": [
+        "10815910000000",
+        "10925750000000"
+      ]
+    },
+    {
+      "poolId": "1a842d0ccd24227b9054b995697d384331ad52b2c71e879943ba0a2d580ade12",
+      "reserves": [
+        "23549950000000",
+        "250454300000000"
+      ]
+    },
+    {
+      "poolId": "2d4d8c3bc6d6f9acb5a8d3a2ca4764061f3b3c2b83a4f24b7334578bf4187e9f",
+      "reserves": [
+        "1358468297530000000",
+        "8437502500000000"
+      ]
+    },
+    {
+      "poolId": "353c3ba62afb30e2fb4531ead8df7e99f6670933f1c120ec90644067a077a4d9",
+      "reserves": [
+        "26263270000000",
+        "178659260000000"
+      ]
+    },
+    {
+      "poolId": "5269d362dbda12177a7d5c7bd8a4e4db2703dbf916bc928c3ad028c5276c8dfa",
+      "reserves": [
+        "186402070000000",
+        "95690000000"
+      ]
+    },
+    {
+      "poolId": "55297c05bd28e16ddb00fc0f730907045fdbc79c37f1d8bfc8e323300510124a",
+      "reserves": [
+        "87202226190000000",
+        "58616130000000"
+      ]
+    },
+    {
+      "poolId": "568f32b324fea0027aa539c4387ae8cb48f325e5b6c1af449f64c97920dcd9b4",
+      "reserves": [
+        "5185360000000",
+        "21552430000000"
+      ]
+    },
+    {
+      "poolId": "60701bc00c2f1917b77b90b51254507fb218d00630cc7ab8e8261dfc57339ab6",
+      "reserves": [
+        "2813198830000000",
+        "22286060000000"
+      ]
+    },
+    {
+      "poolId": "62791f6275a700ef3efe92a7e71714bd6467d7e0ccc32aded2895e2e25cff9e9",
+      "reserves": [
+        "178964601770000000",
+        "219894430000000"
+      ]
+    },
+    {
+      "poolId": "6a31c0416cde84e63d4f4047267fac57fe5145317b343a960f0d6ba00258e3c7",
+      "reserves": [
+        "22313460000000",
+        "6199440000000"
+      ]
+    },
+    {
+      "poolId": "78400f4e6d036e1f9de1da2668f9a6bb6352fd06e63f5233e7338d8fe1b4c39a",
+      "reserves": [
+        "432103180000000",
+        "590025050000000"
+      ]
+    },
+    {
+      "poolId": "8d8cc7f51b42c7507d5642bafb25304e5bf3e1abbc7d49b58089cdb6484e84cd",
+      "reserves": [
+        "139856031070000000",
+        "81180680000000"
+      ]
+    },
+    {
+      "poolId": "907bfe03373ad55de001c4cf6f06aa5e6d35e8e9e23657bde1ea3f32a9dc8114",
+      "reserves": [
+        "16080502608030820000000",
+        "746790582730000000"
+      ]
+    },
+    {
+      "poolId": "972e2104808995ea7c4a1e9e9ba5112bd302d751d3730d9dc99d5df3bca623fc",
+      "reserves": [
+        "2556431400000000",
+        "2549832130000000"
+      ]
+    },
+    {
+      "poolId": "98659ee0658fd5636e1f0078764903950dc4fb75f77f444cab78c455d38f7576",
+      "reserves": [
+        "105336000000000",
+        "105840450000000"
+      ]
+    },
+    {
+      "poolId": "c68483c527406b266a02039895eae978e3588f8f392a80082411a8ca1a914859",
+      "reserves": [
+        "1696755610000000",
+        "1709342570000000"
+      ]
+    },
+    {
+      "poolId": "CCY2PXGMKNQHO7WNYXEWX76L2C5BH3JUW3RCATGUYKY7QQTRILBZIFWV",
+      "reserves": [
+        "456193752466160000000",
+        "212276767626171230000000"
+      ]
+    },
+    {
+      "poolId": "CDFNPMDIWKCTVCDP2K75RI5J4FIKLTSZBWBNLS4BQVT6AS67MRD5GV2V",
+      "reserves": [
+        "67172202090000000",
+        "144238603480170000000"
+      ]
+    },
+    {
+      "poolId": "CDYLKM3DGH5A6QA6QOIITPKG7C4DTZMS2HF75XURORACBHCR6AOE3K33",
+      "reserves": [
+        "652495244450000000",
+        "110980546870000000"
+      ]
+    },
+    {
+      "poolId": "d7e05cc6952ac57e3b3e6eefc0a845c756cdda978e6f626ecf1d915f918d7e84",
+      "reserves": [
+        "28977408643270000000",
+        "659612760000000"
+      ]
+    },
+    {
+      "poolId": "dffe5b7037b88fe0ac31375bc842fea3ccb02ac507a7096ab93f7d26cab958bb",
+      "reserves": [
+        "1314053188530000000",
+        "977200740680000000"
+      ]
+    },
+    {
+      "poolId": "18adc72c11a1397867c836ad2883944d2a71272090bceda8fe497da47f4a1e4a",
+      "reserves": [
+        "62957712401330000000",
+        "14397931451483280000000"
+      ]
+    },
+    {
+      "poolId": "31aa7fba2459b51ccb8b986214f8713b04a9b3cdbfbb64e02744f231f7391283",
+      "reserves": [
+        "31937726790000000",
+        "4710153110000000"
+      ]
+    },
+    {
+      "poolId": "42b17d04a3545f42f096ded1ea5a74e2393316ff1e20f3644258dbf15d37d837",
+      "reserves": [
+        "22647730910000000",
+        "49468662850000000"
+      ]
+    },
+    {
+      "poolId": "461f6345f6b34f6b038f595ea282dad0b5fdcc15151186f2bb956a1a93bc430f",
+      "reserves": [
+        "330430467530000000",
+        "56123691420000000"
+      ]
+    },
+    {
+      "poolId": "4b7890d7699dbfbc44d581ddb9c3baa0b65e3aeb07f093b76ec7ff6c9ec2cd60",
+      "reserves": [
+        "2565098041760000000",
+        "376397555470000000"
+      ]
+    },
+    {
+      "poolId": "4e4c68baf2ea9ef222803b6f2063c08a35b4dd26225ddf08fea54254721f05b8",
+      "reserves": [
+        "68344965383050000000",
+        "13033232488131020000000"
+      ]
+    },
+    {
+      "poolId": "52d16f5b19fdb20244baeb338521e6574596caf0fd0c5fcee675122865598726",
+      "reserves": [
+        "22828734677400000000",
+        "5711432512844050000000"
+      ]
+    },
+    {
+      "poolId": "54111f0a14be039184cb23f5d01c1409d3ca5b1044604a2f24647c5be193c261",
+      "reserves": [
+        "27556489000000000",
+        "3790128780000000"
+      ]
+    },
+    {
+      "poolId": "59fa1dc57433dcfbd2db7319d26cb3da1f28f2d8095a3ec36ad4ef9cadb0013e",
+      "reserves": [
+        "57750094287580000000",
+        "26853163434931970000000"
+      ]
+    },
+    {
+      "poolId": "5af87fae05b76e76c423fc1cc592a45828a0773afea0ba0e12aa92a58bfbb4e3",
+      "reserves": [
+        "66964297778080000000",
+        "8449675978230000000"
+      ]
+    },
+    {
+      "poolId": "654907d50e873a22ed7760b55152545555f24f1cb7de1678fbb9d4cf44feaa7c",
+      "reserves": [
+        "1468504515120000000",
+        "3119968723644110000000"
+      ]
+    },
+    {
+      "poolId": "66b2286fa2cabdf1914abea058e3a18b1267643d818ae76dc1a5994fb22b9886",
+      "reserves": [
+        "11359998990000000",
+        "1373840793940000000"
+      ]
+    },
+    {
+      "poolId": "803bc08c94a556409f11e404d48acaf95cf52429e912b7108d9b549f91e3447f",
+      "reserves": [
+        "45102834410000000",
+        "273551252950000000"
+      ]
+    },
+    {
+      "poolId": "bd5f863bbaecf5f9831dd68794308521566df827db3e4fbf1861f76045ef292f",
+      "reserves": [
+        "5560359840000000",
+        "3385211520000000"
+      ]
+    },
+    {
+      "poolId": "CACX5646BHTJ3CMNDPDTQURAP5REOCUIICJWWQ26DVO3YYYG2UCKKWVY",
+      "reserves": [
+        "2415940220000000",
+        "334968750000000"
+      ]
+    },
+    {
+      "poolId": "CAQODUH4XNX2NTFVACRMO4UR7MA5RLSZA5ZQTHILQYGYYCFQ3LUATIGM",
+      "reserves": [
+        "6500118440350000000",
+        "61224483269900000000"
+      ]
+    },
+    {
+      "poolId": "CCSY43EHJAHT3NQDYKAMJXRFBEEH7OXDL3J3VNGO33UUSEXWNN27GBIZ",
+      "reserves": [
+        "117217209300000000",
+        "54905085822030000000"
+      ]
+    },
+    {
+      "poolId": "CDE57N6XTUPBKYYDGQMXX7E7SLNOLFY3JEQB4MULSMR2AKTSAENGX2HC",
+      "reserves": [
+        "3088395942510000000",
+        "1439941114982290000000"
+      ]
+    },
+    {
+      "poolId": "CDPBOIGPIMZW7ZUHXHDEIE5FN4GXC5T7HCAHT6NKAIXMNNZWPBHC3W54",
+      "reserves": [
+        "8111633762080000000",
+        "49569237906260000000"
+      ]
+    },
+    {
+      "poolId": "f18e8dbbf99edc6d4cbae9a1cd88aacc90983b2559dd48d2913d256cad34d92e",
+      "reserves": [
+        "35408665219840000000",
+        "3755346175650000000"
+      ]
+    },
+    {
+      "poolId": "03080574e064c5c3d6ba8eaa093f92485efa86fe30e0129370aa76f2eab73ab3",
+      "reserves": [
+        "176000000000000",
+        "2242625440000000"
+      ]
+    },
+    {
+      "poolId": "2311b900b9d8ea28231ed87e0b4de3dcb45934a42709fc38796eb2a050136cea",
+      "reserves": [
+        "95280807870000000",
+        "7192450000000"
+      ]
+    },
+    {
+      "poolId": "289c06daa943df14d1b30844455ac914ced9b02b5f7cf53759559b1c8fe9de38",
+      "reserves": [
+        "1602306660000000",
+        "2847586460000000"
+      ]
+    },
+    {
+      "poolId": "2f8c0463703c57b77426f16cda80565fad91199f7cfb03dff40f4018c6adaf24",
+      "reserves": [
+        "4129577490000000",
+        "611753030000000"
+      ]
+    },
+    {
+      "poolId": "4b043c4997e2826ec33aaf08b2a380f8663badd794c4bc9e0c41e4d8d8fd800d",
+      "reserves": [
+        "770683892800000000",
+        "165029029107590000000"
+      ]
+    },
+    {
+      "poolId": "4b37577074379887a3c633399445df29945bd3efda485309c0c0ae8cb572f98b",
+      "reserves": [
+        "2419460370000000",
+        "358977660000000"
+      ]
+    },
+    {
+      "poolId": "5553416049889609c6f45c4cbe29e4207cc4d07c90294d2de7b12d392f294d5e",
+      "reserves": [
+        "91697281770000000",
+        "20053210807730000000"
+      ]
+    },
+    {
+      "poolId": "7d706bc60844082807a50fa4225bd13710497ff5891e7d34420045a93585d8bf",
+      "reserves": [
+        "745544921280000000",
+        "2360426000303180000000"
+      ]
+    },
+    {
+      "poolId": "859035ab93b30f2c3e02db61cd01631955090ee82d3c53b34a1ed5741a511f40",
+      "reserves": [
+        "1075077892700000000",
+        "212164831730000000"
+      ]
+    },
+    {
+      "poolId": "9f6428eff6e26636da81ef5f514a2e8b7c3aac4973a7c7c29bd3027e62ea48c4",
+      "reserves": [
+        "618858990000000",
+        "619670310000000"
+      ]
+    },
+    {
+      "poolId": "a75ddfe01d96b77d19188a026ac3e54f2407a84f47b96481e06b03a3eb9e7543",
+      "reserves": [
+        "18991378090000000",
+        "122538517677770000000"
+      ]
+    },
+    {
+      "poolId": "ad5800ee28c9174bceb235a5e24bd60560b723a09ddddcb11bdac8854cfc848d",
+      "reserves": [
+        "292808220000000",
+        "952122030000000"
+      ]
+    },
+    {
+      "poolId": "b12bca2c5c2bd4b71be673d85bfebf697c5997487ff11a35b7063cfa737758fa",
+      "reserves": [
+        "1918711165040000000",
+        "386168138730000000"
+      ]
+    },
+    {
+      "poolId": "b3daa024bd3b483c5a115c3512b0d2321d9a6c294e86a8a850efb9a4be26c663",
+      "reserves": [
+        "955186920000000",
+        "7727590000000"
+      ]
+    },
+    {
+      "poolId": "b97629bec616dcf2c32952bfb7605b36b2a9458165732728116e593df4e58645",
+      "reserves": [
+        "161212140530000000",
+        "3812353907930000000"
+      ]
+    },
+    {
+      "poolId": "bb965f20ff4427cac2a7d4119cdc3d45ec716b6baa8c86b618b0e8083ada1d10",
+      "reserves": [
+        "9601510760000000",
+        "1149649777890000000"
+      ]
+    },
+    {
+      "poolId": "bdabb1a67a43d9865087024bcc5abc8757af89a3ac1a1de07cbde0af698d8af4",
+      "reserves": [
+        "19449716800000000",
+        "2847689290000000"
+      ]
+    },
+    {
+      "poolId": "c023bcde92474731774802385d8f7a191c1fe91384d8beb91c87cdc9bee1bd6d",
+      "reserves": [
+        "20327850000000",
+        "54200251300000000"
+      ]
+    },
+    {
+      "poolId": "c772fe1b7a69e03e3229e1028f04d00a9fffa4f462795c2b061b7136caf06da1",
+      "reserves": [
+        "10217244710000000",
+        "2593549122010000000"
+      ]
+    },
+    {
+      "poolId": "c801d7d4feff7ba3673eeb8a8d0e27dc6395cb147909cee9d38a461fc7b98ed4",
+      "reserves": [
+        "7138055460000000",
+        "11204304110000000"
+      ]
+    },
+    {
+      "poolId": "d728f444239d7429c39ce0b0213a0e06be5559eef3f16ff6c975f6eb76b07d04",
+      "reserves": [
+        "4684717930000000",
+        "2470668570000000"
+      ]
+    },
+    {
+      "poolId": "e935b20340a8a5e7305a28ca53135b1891ee422353243cbdf0937a86e0789802",
+      "reserves": [
+        "34397485550000000",
+        "71662720000000"
+      ]
+    },
+    {
+      "poolId": "eb0eb1c27ab7658468667ca2e8327217d97a356df9d259b8c75200649fae8a83",
+      "reserves": [
+        "126029980000000",
+        "2335366270000000"
+      ]
+    },
+    {
+      "poolId": "eb4f9ada336e9afcd0841f9005a497ede339c3d48150a19ef1c53b760517ec77",
+      "reserves": [
+        "16517291670000000",
+        "2440015270000000"
+      ]
+    },
+    {
+      "poolId": "ee353fee796e1fa54a933ad7796480bd6411c069c2491a00bea6a0f885cca62c",
+      "reserves": [
+        "19916841270000000",
+        "2946574460000000"
+      ]
+    }
+  ],
+  "tick0": [
+    {
+      "poolId": "CA6PUJLBYKZKUEKLZJMKBZLEKP2OTHANDEOWSFF44FTSYLKQPIICCJBE",
+      "reserves": [
+        "1442543587088990000000",
+        "211548625822220000000"
+      ]
+    },
+    {
+      "poolId": "CB37QM6EHVBDDNK7MAVQESV7WPLKV6G36TR7MHAOYWPZXLPQUWSDOK4E",
+      "reserves": [
+        "780787944400000000",
+        "669969932480000000"
+      ]
+    },
+    {
+      "poolId": "CC2QQVENM4W4C6DW4WZGMZSW4WI6ZWFISHRWVXMTWPIAHMB77IOIP77C",
+      "reserves": [
+        "99885215160482",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CCKGQSQG5JLZBMYMB4HT6M4H7FUC3NK5C75MIHN6627LRAY5B2SYL2AD",
+      "reserves": [
+        "1749218437452280000000",
+        "117571871122440000000"
+      ]
+    },
+    {
+      "poolId": "CCP3PPN6A5GRAGZTQAXYWSROV4QQMEE3FOR2IXSYYVOXCXPMZRB2QAWZ",
+      "reserves": [
+        "17475066212740000000",
+        "5547281850000000"
+      ]
+    },
+    {
+      "poolId": "CCWNKTTMHZ4VRR3FYQT3G253MHOGRLUEVTO6YPENM7ZN65DGC345LHI6",
+      "reserves": [
+        "100047848307986",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CCX2TYR4AQTPPMTZOIMP3YIBHAYLLSTXVP47PAGTL753PCQFSKV32MIA",
+      "reserves": [
+        "102433185272280000000",
+        "108961416983040000000"
+      ]
+    },
+    {
+      "poolId": "CDPF7GMA3OLVUBLEVKNKXKEFSS3EQAXN75RHT7DR4SYIHFS5LH5JOTD7",
+      "reserves": [
+        "5796518162390000000",
+        "24085118788470000000"
+      ]
+    },
+    {
+      "poolId": "CA6GAFOJCW4MGQQBUCQUSA3CLIH25G4SNKB2JHYKZCVWZTNW5VXMSC4O",
+      "reserves": [
+        "80177821012685420000000",
+        "25310892495500000000"
+      ]
+    },
+    {
+      "poolId": "CAC56QNJ2CX456TPC5S4MSOU3DBULG4TGN7AZ2SAYGBLD3GICFMZBIT2",
+      "reserves": [
+        "99995015624426",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "CARCLMAPEV4GYZ3TTFJDQHSNC7PH4G22UIMMER6BZW5H2TYZWWMW7FOS",
+      "reserves": [
+        "11559728717560000000",
+        "1695539962640000000"
+      ]
+    },
+    {
+      "poolId": "CB7FKGSTHP75ORTIZGGMVUTQLEMVTSEOI4QORQPCABJSGTAATDFCE2YV",
+      "reserves": [
+        "37608499601710000000",
+        "905248300940000000"
+      ]
+    },
+    {
+      "poolId": "CBLPZUFE6WJ7FNOTZINEWFDFKHGDSQZOLVCYLGTAX4JC6OABNRWAFTI5",
+      "reserves": [
+        "16765489830000000",
+        "1125541430000000"
+      ]
+    },
+    {
+      "poolId": "CBRXOYKXPQI4EEA6KA35TUIYN5OJLNWMTIVDOMNOIL2BG5Y5LEDHUU7V",
+      "reserves": [
+        "86491051298282",
+        "100000000000000"
+      ]
+    },
+    {
+      "poolId": "085c2e15e70e9e799e914fa687fbfa8562912519a8d9ddb734a96d981b46c713",
+      "reserves": [
+        "625521845120000000",
+        "760746900000000"
+      ]
+    },
+    {
+      "poolId": "0b8aafefa1a40476e886929db7ad9ea038a5ade60584737c04045c6d018871f4",
+      "reserves": [
+        "5641294750813460000000",
+        "1775377511060000000"
+      ]
+    },
+    {
+      "poolId": "0d0c60454556bf2d5201495c058cc93bc5d94ce34227fae3897ed4ac859a7193",
+      "reserves": [
+        "323950950000000",
+        "4591730000000"
+      ]
+    },
+    {
+      "poolId": "11b02c42a6da15fd79d3995ffdbd33be702e01c5f09a10129cc4fbe0361b1475",
+      "reserves": [
+        "10815910000000",
+        "10925750000000"
+      ]
+    },
+    {
+      "poolId": "1a842d0ccd24227b9054b995697d384331ad52b2c71e879943ba0a2d580ade12",
+      "reserves": [
+        "23549950000000",
+        "250454300000000"
+      ]
+    },
+    {
+      "poolId": "27480d0483c8320ba4a707797526ffd67118e841491e0cbeb66db697bb66cccb",
+      "reserves": [
+        "1649195000000000",
+        "1551490250000000"
+      ]
+    },
+    {
+      "poolId": "2d4d8c3bc6d6f9acb5a8d3a2ca4764061f3b3c2b83a4f24b7334578bf4187e9f",
+      "reserves": [
+        "1358468297530000000",
+        "8437502500000000"
+      ]
+    },
+    {
+      "poolId": "328306d8d623aa358415f29fca051afbbe8f0c591c28bbcb78e80907deffb2a7",
+      "reserves": [
+        "207395509560000000",
+        "241292514420000000"
+      ]
+    },
+    {
+      "poolId": "3c3e0e25048c3a5662d30ba125023ee293f186ff3a4e6740bd6d9d35d1e93d3c",
+      "reserves": [
+        "38030000510000000",
+        "49661081759600000000"
+      ]
+    },
+    {
+      "poolId": "5269d362dbda12177a7d5c7bd8a4e4db2703dbf916bc928c3ad028c5276c8dfa",
+      "reserves": [
+        "186402070000000",
+        "95690000000"
+      ]
+    },
+    {
+      "poolId": "55297c05bd28e16ddb00fc0f730907045fdbc79c37f1d8bfc8e323300510124a",
+      "reserves": [
+        "87202226190000000",
+        "58616130000000"
+      ]
+    },
+    {
+      "poolId": "568f32b324fea0027aa539c4387ae8cb48f325e5b6c1af449f64c97920dcd9b4",
+      "reserves": [
+        "5185360000000",
+        "21552430000000"
+      ]
+    },
+    {
+      "poolId": "6a31c0416cde84e63d4f4047267fac57fe5145317b343a960f0d6ba00258e3c7",
+      "reserves": [
+        "22313460000000",
+        "6199440000000"
+      ]
+    },
+    {
+      "poolId": "7a3b99b13f01fbb89754c9721b41aaafac773d0f6e222a7024aa9e4310a9debf",
+      "reserves": [
+        "55113544250000000",
+        "47472283440000000"
+      ]
+    },
+    {
+      "poolId": "83884111bf5152ce690c84db55714cbe943f21221863a0bd91b34679a28dcf0b",
+      "reserves": [
+        "53977722550000000",
+        "39034120130000000"
+      ]
+    },
+    {
+      "poolId": "8d8cc7f51b42c7507d5642bafb25304e5bf3e1abbc7d49b58089cdb6484e84cd",
+      "reserves": [
+        "139856031070000000",
+        "81180680000000"
+      ]
+    },
+    {
+      "poolId": "972e2104808995ea7c4a1e9e9ba5112bd302d751d3730d9dc99d5df3bca623fc",
+      "reserves": [
+        "2556431400000000",
+        "2549832130000000"
+      ]
+    },
+    {
+      "poolId": "98659ee0658fd5636e1f0078764903950dc4fb75f77f444cab78c455d38f7576",
+      "reserves": [
+        "105336000000000",
+        "105840450000000"
+      ]
+    },
+    {
+      "poolId": "a468d41d8e9b8f3c7209651608b74b7db7ac9952dcae0cdf24871d1d9c7b0088",
+      "reserves": [
+        "1354710886740000000000",
+        "198659151047460000000"
+      ]
+    },
+    {
+      "poolId": "a92f55a5607db30047635970af435e4332ebbaff8a7fa70a9158c2fd6c1ecd2b",
+      "reserves": [
+        "5772935222880000000",
+        "5774410898210000000"
+      ]
+    },
+    {
+      "poolId": "aee77f92cbec6d4545e0752ba2d462d76f0b12d4e7f2bada1fefbbfa5f24ee9f",
+      "reserves": [
+        "178735756728770000000",
+        "114846282350000000"
+      ]
+    },
+    {
+      "poolId": "c172ebe8e2249c1de69695e2d24ed0d8156d2798996facd6ce7974ce1b4e9600",
+      "reserves": [
+        "100759331660000000",
+        "100960798290000000"
+      ]
+    },
+    {
+      "poolId": "c68483c527406b266a02039895eae978e3588f8f392a80082411a8ca1a914859",
+      "reserves": [
+        "1696755610000000",
+        "1709342570000000"
+      ]
+    },
+    {
+      "poolId": "c941868b109249b0659e4e52799039f8486529c9d0a531e1b6b5816a37cdb940",
+      "reserves": [
+        "1297998380000000",
+        "19339463530000000"
+      ]
+    },
+    {
+      "poolId": "ca86b534198c097c4cf3a03f04e069b3c2a4bf8ab13d904aa6123b16c54b79b0",
+      "reserves": [
+        "14357833490000000",
+        "594842908090000000"
+      ]
+    },
+    {
+      "poolId": "CDUX476HQ4JZBPLLVEVRIVXDRKAGYDNDL7OLBE5DD37JXOUFI2NACXJ5",
+      "reserves": [
+        "375744908110000000",
+        "220750550000000"
+      ]
+    },
+    {
+      "poolId": "cf227a44e39d7cff8c927bc48c9b4c03b06ec76c9da8dde9ae6930888b583a68",
+      "reserves": [
+        "699678587460000000",
+        "48480350000000"
+      ]
+    },
+    {
+      "poolId": "d8552731aaa12ea55cf8a87d393ba6eeb75fe11a6d2e38d83befbacc14024bdb",
+      "reserves": [
+        "3144606134592640000000",
+        "1843971984860000000"
+      ]
+    },
+    {
+      "poolId": "dffe5b7037b88fe0ac31375bc842fea3ccb02ac507a7096ab93f7d26cab958bb",
+      "reserves": [
+        "1314053188530000000",
+        "977200740680000000"
+      ]
+    },
+    {
+      "poolId": "353c3ba62afb30e2fb4531ead8df7e99f6670933f1c120ec90644067a077a4d9",
+      "reserves": [
+        "26263270000000",
+        "178659260000000"
+      ]
+    },
+    {
+      "poolId": "60701bc00c2f1917b77b90b51254507fb218d00630cc7ab8e8261dfc57339ab6",
+      "reserves": [
+        "2813198830000000",
+        "22286060000000"
+      ]
+    },
+    {
+      "poolId": "62791f6275a700ef3efe92a7e71714bd6467d7e0ccc32aded2895e2e25cff9e9",
+      "reserves": [
+        "178964601770000000",
+        "219894430000000"
+      ]
+    },
+    {
+      "poolId": "78400f4e6d036e1f9de1da2668f9a6bb6352fd06e63f5233e7338d8fe1b4c39a",
+      "reserves": [
+        "432103180000000",
+        "590025050000000"
+      ]
+    },
+    {
+      "poolId": "907bfe03373ad55de001c4cf6f06aa5e6d35e8e9e23657bde1ea3f32a9dc8114",
+      "reserves": [
+        "16080502608030820000000",
+        "746790582730000000"
+      ]
+    },
+    {
+      "poolId": "CACX5646BHTJ3CMNDPDTQURAP5REOCUIICJWWQ26DVO3YYYG2UCKKWVY",
+      "reserves": [
+        "2415940220000000",
+        "334968750000000"
+      ]
+    },
+    {
+      "poolId": "CCSY43EHJAHT3NQDYKAMJXRFBEEH7OXDL3J3VNGO33UUSEXWNN27GBIZ",
+      "reserves": [
+        "117217209300000000",
+        "54905085822030000000"
+      ]
+    },
+    {
+      "poolId": "CCY2PXGMKNQHO7WNYXEWX76L2C5BH3JUW3RCATGUYKY7QQTRILBZIFWV",
+      "reserves": [
+        "456193752466160000000",
+        "212276767626171230000000"
+      ]
+    },
+    {
+      "poolId": "CDFNPMDIWKCTVCDP2K75RI5J4FIKLTSZBWBNLS4BQVT6AS67MRD5GV2V",
+      "reserves": [
+        "67172202090000000",
+        "144238603480170000000"
+      ]
+    },
+    {
+      "poolId": "CDPBOIGPIMZW7ZUHXHDEIE5FN4GXC5T7HCAHT6NKAIXMNNZWPBHC3W54",
+      "reserves": [
+        "8111633762080000000",
+        "49569237906260000000"
+      ]
+    },
+    {
+      "poolId": "CDYLKM3DGH5A6QA6QOIITPKG7C4DTZMS2HF75XURORACBHCR6AOE3K33",
+      "reserves": [
+        "652495244450000000",
+        "110980546870000000"
+      ]
+    },
+    {
+      "poolId": "d7e05cc6952ac57e3b3e6eefc0a845c756cdda978e6f626ecf1d915f918d7e84",
+      "reserves": [
+        "28977408643270000000",
+        "659612760000000"
+      ]
+    },
+    {
+      "poolId": "18adc72c11a1397867c836ad2883944d2a71272090bceda8fe497da47f4a1e4a",
+      "reserves": [
+        "62957712401330000000",
+        "14397931451483280000000"
+      ]
+    },
+    {
+      "poolId": "2f8c0463703c57b77426f16cda80565fad91199f7cfb03dff40f4018c6adaf24",
+      "reserves": [
+        "4129577490000000",
+        "611753030000000"
+      ]
+    },
+    {
+      "poolId": "31aa7fba2459b51ccb8b986214f8713b04a9b3cdbfbb64e02744f231f7391283",
+      "reserves": [
+        "31937726790000000",
+        "4710153110000000"
+      ]
+    },
+    {
+      "poolId": "42b17d04a3545f42f096ded1ea5a74e2393316ff1e20f3644258dbf15d37d837",
+      "reserves": [
+        "22647730910000000",
+        "49468662850000000"
+      ]
+    },
+    {
+      "poolId": "461f6345f6b34f6b038f595ea282dad0b5fdcc15151186f2bb956a1a93bc430f",
+      "reserves": [
+        "330174216480000000",
+        "56167380570000000"
+      ]
+    },
+    {
+      "poolId": "4b37577074379887a3c633399445df29945bd3efda485309c0c0ae8cb572f98b",
+      "reserves": [
+        "2419460370000000",
+        "358977660000000"
+      ]
+    },
+    {
+      "poolId": "4b7890d7699dbfbc44d581ddb9c3baa0b65e3aeb07f093b76ec7ff6c9ec2cd60",
+      "reserves": [
+        "2565098041760000000",
+        "376397555470000000"
+      ]
+    },
+    {
+      "poolId": "4e4c68baf2ea9ef222803b6f2063c08a35b4dd26225ddf08fea54254721f05b8",
+      "reserves": [
+        "68344965383050000000",
+        "13033232488131020000000"
+      ]
+    },
+    {
+      "poolId": "52d16f5b19fdb20244baeb338521e6574596caf0fd0c5fcee675122865598726",
+      "reserves": [
+        "22828734677400000000",
+        "5711432512844050000000"
+      ]
+    },
+    {
+      "poolId": "54111f0a14be039184cb23f5d01c1409d3ca5b1044604a2f24647c5be193c261",
+      "reserves": [
+        "27556489000000000",
+        "3790128780000000"
+      ]
+    },
+    {
+      "poolId": "5553416049889609c6f45c4cbe29e4207cc4d07c90294d2de7b12d392f294d5e",
+      "reserves": [
+        "91697281770000000",
+        "20053210807730000000"
+      ]
+    },
+    {
+      "poolId": "59fa1dc57433dcfbd2db7319d26cb3da1f28f2d8095a3ec36ad4ef9cadb0013e",
+      "reserves": [
+        "57750094287590000000",
+        "26853163434931960000000"
+      ]
+    },
+    {
+      "poolId": "5af87fae05b76e76c423fc1cc592a45828a0773afea0ba0e12aa92a58bfbb4e3",
+      "reserves": [
+        "66964298021270000000",
+        "8449675947640000000"
+      ]
+    },
+    {
+      "poolId": "654907d50e873a22ed7760b55152545555f24f1cb7de1678fbb9d4cf44feaa7c",
+      "reserves": [
+        "1468504515120000000",
+        "3119968723644110000000"
+      ]
+    },
+    {
+      "poolId": "66b2286fa2cabdf1914abea058e3a18b1267643d818ae76dc1a5994fb22b9886",
+      "reserves": [
+        "11359998990000000",
+        "1373840793940000000"
+      ]
+    },
+    {
+      "poolId": "803bc08c94a556409f11e404d48acaf95cf52429e912b7108d9b549f91e3447f",
+      "reserves": [
+        "45102834410000000",
+        "273551252950000000"
+      ]
+    },
+    {
+      "poolId": "859035ab93b30f2c3e02db61cd01631955090ee82d3c53b34a1ed5741a511f40",
+      "reserves": [
+        "1075077892700000000",
+        "212164831730000000"
+      ]
+    },
+    {
+      "poolId": "b3daa024bd3b483c5a115c3512b0d2321d9a6c294e86a8a850efb9a4be26c663",
+      "reserves": [
+        "955186920000000",
+        "7727590000000"
+      ]
+    },
+    {
+      "poolId": "b97629bec616dcf2c32952bfb7605b36b2a9458165732728116e593df4e58645",
+      "reserves": [
+        "161212140530000000",
+        "3812353907930000000"
+      ]
+    },
+    {
+      "poolId": "bd5f863bbaecf5f9831dd68794308521566df827db3e4fbf1861f76045ef292f",
+      "reserves": [
+        "5560359840000000",
+        "3385211520000000"
+      ]
+    },
+    {
+      "poolId": "bdabb1a67a43d9865087024bcc5abc8757af89a3ac1a1de07cbde0af698d8af4",
+      "reserves": [
+        "19449716800000000",
+        "2847689290000000"
+      ]
+    },
+    {
+      "poolId": "CAQODUH4XNX2NTFVACRMO4UR7MA5RLSZA5ZQTHILQYGYYCFQ3LUATIGM",
+      "reserves": [
+        "6500118440350000000",
+        "61224483269900000000"
+      ]
+    },
+    {
+      "poolId": "CDE57N6XTUPBKYYDGQMXX7E7SLNOLFY3JEQB4MULSMR2AKTSAENGX2HC",
+      "reserves": [
+        "3088395942510000000",
+        "1439941114982290000000"
+      ]
+    },
+    {
+      "poolId": "d728f444239d7429c39ce0b0213a0e06be5559eef3f16ff6c975f6eb76b07d04",
+      "reserves": [
+        "4684717930000000",
+        "2470668570000000"
+      ]
+    },
+    {
+      "poolId": "eb4f9ada336e9afcd0841f9005a497ede339c3d48150a19ef1c53b760517ec77",
+      "reserves": [
+        "16517291670000000",
+        "2440015270000000"
+      ]
+    },
+    {
+      "poolId": "ee353fee796e1fa54a933ad7796480bd6411c069c2491a00bea6a0f885cca62c",
+      "reserves": [
+        "19916841270000000",
+        "2946574460000000"
+      ]
+    },
+    {
+      "poolId": "f18e8dbbf99edc6d4cbae9a1cd88aacc90983b2559dd48d2913d256cad34d92e",
+      "reserves": [
+        "35408665219840000000",
+        "3755346175650000000"
+      ]
+    },
+    {
+      "poolId": "03080574e064c5c3d6ba8eaa093f92485efa86fe30e0129370aa76f2eab73ab3",
+      "reserves": [
+        "176000000000000",
+        "2242625440000000"
+      ]
+    },
+    {
+      "poolId": "2311b900b9d8ea28231ed87e0b4de3dcb45934a42709fc38796eb2a050136cea",
+      "reserves": [
+        "95280807870000000",
+        "7192450000000"
+      ]
+    },
+    {
+      "poolId": "289c06daa943df14d1b30844455ac914ced9b02b5f7cf53759559b1c8fe9de38",
+      "reserves": [
+        "1602306660000000",
+        "2847586460000000"
+      ]
+    },
+    {
+      "poolId": "4b043c4997e2826ec33aaf08b2a380f8663badd794c4bc9e0c41e4d8d8fd800d",
+      "reserves": [
+        "770683892800000000",
+        "165029029107590000000"
+      ]
+    },
+    {
+      "poolId": "7d706bc60844082807a50fa4225bd13710497ff5891e7d34420045a93585d8bf",
+      "reserves": [
+        "745544921280000000",
+        "2360426000303180000000"
+      ]
+    },
+    {
+      "poolId": "9f6428eff6e26636da81ef5f514a2e8b7c3aac4973a7c7c29bd3027e62ea48c4",
+      "reserves": [
+        "618858990000000",
+        "619670310000000"
+      ]
+    },
+    {
+      "poolId": "a75ddfe01d96b77d19188a026ac3e54f2407a84f47b96481e06b03a3eb9e7543",
+      "reserves": [
+        "18991378090000000",
+        "122538517677770000000"
+      ]
+    },
+    {
+      "poolId": "ad5800ee28c9174bceb235a5e24bd60560b723a09ddddcb11bdac8854cfc848d",
+      "reserves": [
+        "292808220000000",
+        "952122030000000"
+      ]
+    },
+    {
+      "poolId": "b12bca2c5c2bd4b71be673d85bfebf697c5997487ff11a35b7063cfa737758fa",
+      "reserves": [
+        "1918711165040000000",
+        "386168138730000000"
+      ]
+    },
+    {
+      "poolId": "bb965f20ff4427cac2a7d4119cdc3d45ec716b6baa8c86b618b0e8083ada1d10",
+      "reserves": [
+        "9601510760000000",
+        "1149649777890000000"
+      ]
+    },
+    {
+      "poolId": "c023bcde92474731774802385d8f7a191c1fe91384d8beb91c87cdc9bee1bd6d",
+      "reserves": [
+        "20327850000000",
+        "54200251300000000"
+      ]
+    },
+    {
+      "poolId": "c772fe1b7a69e03e3229e1028f04d00a9fffa4f462795c2b061b7136caf06da1",
+      "reserves": [
+        "10217244710000000",
+        "2593549122010000000"
+      ]
+    },
+    {
+      "poolId": "c801d7d4feff7ba3673eeb8a8d0e27dc6395cb147909cee9d38a461fc7b98ed4",
+      "reserves": [
+        "7138055460000000",
+        "11204304110000000"
+      ]
+    },
+    {
+      "poolId": "e935b20340a8a5e7305a28ca53135b1891ee422353243cbdf0937a86e0789802",
+      "reserves": [
+        "34397485550000000",
+        "71662720000000"
+      ]
+    },
+    {
+      "poolId": "eb0eb1c27ab7658468667ca2e8327217d97a356df9d259b8c75200649fae8a83",
+      "reserves": [
+        "126029980000000",
+        "2335366270000000"
+      ]
+    }
+  ]
+}

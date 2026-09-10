@@ -33,7 +33,7 @@ describe('SushiPoolProvider', () => {
         })
 
         it('looks up factory GetPool entries for every pair, fee tier and ordering, deduping by pool', async () => {
-            const rpc = {loadLedgerEntries: jest.fn().mockResolvedValue([
+            const rpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockResolvedValue([
                 {xdr: buildGetPoolEntry(SUSHI_FACTORY, USDT0_CONTRACT, USDC_CONTRACT, 500, FIXTURE_POOL)},
                 {xdr: buildGetPoolEntry(SUSHI_FACTORY, USDC_CONTRACT, USDT0_CONTRACT, 500, FIXTURE_POOL)}
             ])}
@@ -46,8 +46,21 @@ describe('SushiPoolProvider', () => {
             expect(pools).toEqual([FIXTURE_POOL])
         })
 
+        it('keeps a connector per network when the shared instance is configured for multiple data sources', async () => {
+            const pubnetRpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockResolvedValue([
+                {xdr: buildGetPoolEntry(SUSHI_FACTORY, USDC_CONTRACT, USDT0_CONTRACT, 500, FIXTURE_POOL)}
+            ])}
+            const testnetRpc = {network: 'Test SDF Network ; September 2015', loadLedgerEntries: jest.fn().mockResolvedValue([])}
+            provider.configure(pubnetRpc)
+            provider.configure(testnetRpc) //must not displace the pubnet connector
+            const pools = await provider.getTargetPools(USDC, [USDT0], NETWORK)
+            expect(pubnetRpc.loadLedgerEntries).toHaveBeenCalledTimes(1)
+            expect(testnetRpc.loadLedgerEntries).not.toHaveBeenCalled()
+            expect(pools).toEqual([FIXTURE_POOL])
+        })
+
         it('returns empty list when the RPC lookup fails', async () => {
-            const rpc = {loadLedgerEntries: jest.fn().mockRejectedValue(new Error('rpc down'))}
+            const rpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockRejectedValue(new Error('rpc down'))}
             provider.configure(rpc)
             expect(await provider.getTargetPools(USDC, [USDT0], NETWORK)).toEqual([])
         })

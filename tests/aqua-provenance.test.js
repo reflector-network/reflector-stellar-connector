@@ -107,7 +107,7 @@ describe('TxCache.updateTokenMeta classic assets', () => {
         const connector = {
             network: Networks.PUBLIC,
             getLedgerInfo: () => Promise.resolve({latestLedgerCloseTime: Math.floor(Date.now() / 1000) + 3600, latestLedger: 100}),
-            loadContractInstances: () => Promise.resolve(new Map()),
+            loadPoolSnapshot: () => Promise.resolve(null),
             generateLedgerRanges: () => Promise.resolve([]),
             fetchTransactions: () => Promise.resolve(),
             simulateTransaction: jest.fn()

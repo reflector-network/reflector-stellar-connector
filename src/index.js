@@ -1,6 +1,7 @@
 const RpcConnector = require('./rpc-connector')
 const {getDexVolumes} = require('./dex')
 const {getPoolVolumes, getPoolContracts, configure: configurePools} = require('./pools')
+const {resolvePoolGuards} = require('./pools/pool-guards')
 const {getVWAP, scaleValue, TARGET_DECIMALS} = require('./utils')
 const TxCache = require('./cache')
 
@@ -40,12 +41,14 @@ async function discoverPools(baseAsset, assets, network, crossAssets) {
  * @param {number} period - period in seconds
  * @param {number} count - count of periods
  * @param {string[]} crossAssets - list of cross-price assets
+ * @param {{minBaseVolume: number}} guards - resolved pool guards
  * @returns {{volume: BigInt, quoteVolume: BigInt}[]}
  */
-function getVolumesData(cache, baseAsset, assets, network, from, period, count, crossAssets) {
+function getVolumesData(cache, baseAsset, assets, network, from, period, count, crossAssets, guards) {
+    //trades and pools are two observations of the same period; the trades count only when the period has its pool snapshot
     const volumesData = [
         getDexVolumes(cache, baseAsset, assets, network, from, period, count),
-        getPoolVolumes(cache, baseAsset, assets, network, from, period, count)
+        getPoolVolumes(cache, baseAsset, assets, network, from, period, count, guards)
     ]
     for (const crossAsset of crossAssets.filter(asset => asset !== baseAsset)) {
         const crossAssetTradesData = getDexVolumes(
@@ -64,7 +67,8 @@ function getVolumesData(cache, baseAsset, assets, network, from, period, count, 
             network,
             from,
             period,
-            count
+            count,
+            guards
         )
         const normalized = normalizeCrossVolumes([crossAssetTradesData, crossAssetPoolsData], count, assets.length, crossAsset)
         volumesData.push(...normalized)
@@ -168,9 +172,10 @@ class StellarProvider {
      * @param {number} options.count - number of periods
      * @param {string} [options.simSource] - account ID for simulateTransaction
      * @param {string[]} [options.crossAssets] - cross-price assets
+     * @param {{poolGuards: {minBaseVolume: number}}} [options.options] - caller options; only `poolGuards` is read by this connector
      * @return {Array<Array<Array<{volume: BigInt, quoteVolume: BigInt, ts: number}>>>}
      */
-    async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets}) {
+    async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets, options}) {
         //the cache buckets transactions and pool snapshots by its own period; any other value silently mis-weights pools
         if (period !== this.cache.period)
             throw new Error(`Unsupported period ${period}. This connector aggregates ${this.cache.period}-second periods.`)
@@ -178,14 +183,18 @@ class StellarProvider {
         if (!crossAssets) {
             crossAssets = []
         }
+        //the pool liquidity floor; overriding it on one node only removes that node from the cluster majority
+        const guards = resolvePoolGuards(options?.poolGuards)
         //load pool contracts for the specified assets
         const allPoolContracts = await discoverPools(baseAsset, assets, this.network, crossAssets)
         //update cache with tokens metadata (cross assets included - their decimals scale cross-denominated pools)
         await this.cache.updateTokenMeta([baseAsset, ...assets, ...crossAssets], simSource)
+        //a tick still taking the snapshot for the period asked for has not staged it yet
+        await this.cache.whenIdle()
         //update cache with recent transactions and pools data (merged contracts)
         await this.cache.updateCache(period, count, allPoolContracts)
         //load all trade and pool volumes data for base and cross assets
-        const volumes = getVolumesData(this.cache, baseAsset, assets, this.network, from, period, count, crossAssets)
+        const volumes = getVolumesData(this.cache, baseAsset, assets, this.network, from, period, count, crossAssets, guards)
         //init result array of [period][asset] = [{volume, quoteVolume, ts}]
         const data = Array.from({length: count})
             .map(() => Array.from({length: assets.length}).map(() => null))

@@ -1,5 +1,5 @@
 const {xdr, Address, TransactionBuilder, Account, Keypair, scValToNative, Operation, StrKey} = require('@stellar/stellar-sdk')
-const {invokeRpcMethod} = require('./utils')
+const {invokeRpcMethod, rpcHost} = require('./utils')
 
 /**
  * Derive contract instance ledger key from contract address
@@ -131,14 +131,11 @@ class RpcConnector {
     }
 
     /**
-     * Load ledger entries from RPC
-     * @param {string[]} contracts - Array of contract IDs to load
-     * @return {Promise<Map<string, {key: string, xdr: string, lastModifiedLedger: number, liveUntilLedgerSeq: number}>>} Map of contract IDs to their ledger entries
+     * Read the current state of every pool, as of the ledger the RPC served it at
+     * @param {string[]} contracts - pool contract IDs, or classic liquidity pool IDs (hex)
+     * @return {Promise<{instances: Map<string, {key: string, xdr: string, lastModifiedLedgerSeq: number}>, servedLedger: number}|null>} the pools' entries (a pool with no entry is omitted) and the ledger they were read at; null when the read is the state at no single ledger
      */
-    async loadContractInstances(contracts) {
-        if (!contracts || contracts.length === 0)
-            return new Map() //nothing to load
-        //map ledger keys to contract IDs
+    async loadPoolSnapshot(contracts) {
         const keyMapping = new Map()
         for (const contract of contracts) {
             const key = StrKey.isValidContract(contract)
@@ -146,48 +143,58 @@ class RpcConnector {
                 : generateLiquidityPoolKey(contract)
             keyMapping.set(key.toXdr('base64'), contract)
         }
-        for (let i = 0; i < 3; i++) { //max 3 attempts
-            try {
-                const entries = await this.loadLedgerEntries([...keyMapping.keys()])
-                const instances = new Map()
-                for (const entry of entries) {
-                    //map entry to contract ID
-                    const contractId = keyMapping.get(entry.key)
-                    if (contractId) {
-                        instances.set(contractId, entry)
-                    }
-                }
-                return instances
-            } catch (e) {
-                console.warn({err: e, msg: 'Failed getLedgerEntries request'})
-            }
+        const {entries, servedLedgers} = await this.loadLedgerEntries([...keyMapping.keys()])
+        const servedLedger = servedLedgers[0]
+        //every 200 keys are a request of their own, and two requests can be served at different ledgers: a read that
+        //mixes two states is the state at no ledger at all
+        if (!Number.isSafeInteger(servedLedger) || servedLedger <= 0 || servedLedgers.some(ledger => ledger !== servedLedger)) {
+            console.debug({msg: 'Pool read discarded', network: this.network, servedLedgers})
+            return null
         }
-        throw new Error('Failed to load contracts data from RPC')
+        const instances = new Map()
+        for (const entry of entries) {
+            const contractId = keyMapping.get(entry.key)
+            if (contractId)
+                instances.set(contractId, entry)
+        }
+        console.debug({msg: 'Loaded pool instances', requested: keyMapping.size, loaded: instances.size, servedLedger})
+        return {instances, servedLedger}
     }
 
     /**
      * Load arbitrary ledger entries from RPC (chunked to respect the per-request key limit)
      * @param {string[]} keys - base64 ledger keys
-     * @return {Promise<{key: string, xdr: string, lastModifiedLedgerSeq: number}[]>} - existing entries (missing keys are omitted)
+     * @return {Promise<{entries: {key: string, xdr: string, lastModifiedLedgerSeq: number}[], latestLedger: number, servedLedgers: number[]}>} - existing entries (missing keys are omitted), the highest ledger they were served at and the ledger of each chunk
      */
     async loadLedgerEntries(keys) {
         if (!keys || keys.length === 0)
-            return []
+            return {entries: [], latestLedger: 0, servedLedgers: []}
         const maxEntries = 200 //max entries per request
         const chunks = []
         for (let i = 0; i < keys.length; i += maxEntries) {
             chunks.push(keys.slice(i, i + maxEntries))
         }
-        const entries = []
-        await Promise.all(chunks.map(chunk =>
-            invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: chunk})
-                .then(chunkData => {
-                    if (chunkData?.entries) {
-                        entries.push(...chunkData.entries)
-                    }
-                })
+        const validateResult = (result, rpcUrl) => {
+            const host = rpcHost(rpcUrl)
+            //a response without entries is indistinguishable from "no such pools" downstream, so it must fail here
+            if (!result || !Array.isArray(result.entries))
+                throw new Error(`getLedgerEntries response has no entries array (${host})`)
+        }
+        const chunkResults = await Promise.all(chunks.map(chunk =>
+            invokeRpcMethod(this.rpcUrls, 'getLedgerEntries', {keys: chunk}, {validateResult})
         ))
-        return entries
+        const entries = []
+        //the ledger each chunk was served at, in chunk order: a caller that needs one state checks they agree
+        const servedLedgers = []
+        let latestLedger = 0
+        for (const chunkData of chunkResults) {
+            entries.push(...chunkData.entries)
+            const servedLedger = Number(chunkData.latestLedger)
+            servedLedgers.push(servedLedger)
+            if (Number.isFinite(servedLedger) && servedLedger > latestLedger)
+                latestLedger = servedLedger
+        }
+        return {entries, latestLedger, servedLedgers}
     }
 
     async getTransaction(hash) {

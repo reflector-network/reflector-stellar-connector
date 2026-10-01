@@ -66,7 +66,7 @@ class SushiPoolProvider extends PoolProviderBase {
             }
             if (keys.length === 0)
                 return []
-            const entries = await rpc.loadLedgerEntries(keys)
+            const {entries} = await rpc.loadLedgerEntries(keys)
             const pools = new Set()
             for (const entry of entries) {
                 pools.add(parseGetPoolEntry(entry.xdr))

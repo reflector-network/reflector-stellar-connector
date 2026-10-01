@@ -23,20 +23,19 @@ function getDexVolumes(cache, baseAsset, assets, network, from, period, limit) {
     for (let i = 0; i < limit; i++) {
         const periodFrom = from + period * i
         const periodTo = periodFrom + period
-        const tradesAggregator = new DexTradesAggregator(baseAsset, assets, network, periodFrom)
-        //skip DEX for periods where pool reserves were never loaded
+        //trades count only beside the pool reserves of the same period; a snapshot holding no pools still counts
         if (cache.hasPoolDataForPeriod(periodFrom, periodTo)) {
-            //retrieve trades for current period
-            const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodTo)
-            //accumulate trades
-            tradesAggregator.processPeriodTrades(tradesForPeriod)
+            const tradesAggregator = new DexTradesAggregator(baseAsset, assets, network, periodFrom)
+            tradesAggregator.processPeriodTrades(cache.getTradesForPeriod(periodFrom, periodTo))
+            //aggregate volumes
+            const volumes = tradesAggregator.volumes
+            //add to results
+            results.push(volumes)
         } else {
-            console.debug({msg: 'Skipping DEX trades — no pool data for period', from: periodFrom, to: periodTo})
+            console.warn({msg: 'No pool snapshot for period - DEX trades not counted', from: periodFrom, to: periodTo, network})
+            //no volume for any asset: one undefined per asset, the same shape as an aggregator with no trades
+            results.push(Array.from({length: assets.length}))
         }
-        //aggregate volumes
-        const volumes = tradesAggregator.volumes
-        //add to results
-        results.push(volumes)
     }
     return results
 }

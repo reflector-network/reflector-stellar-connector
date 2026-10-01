@@ -206,7 +206,7 @@ describe('get price test', () => {
         const totalRes = []
         while (from < targetTimestamp) {
             const pools = new Map()
-            for (const poolContract of provider.cache.poolContracts) {
+            for (const poolContract of provider.cache.poolContracts || []) {
                 const [poolAddress, poolProvider] = poolContract
                 let instanceData = null
                 if (poolProvider.constructor.name === 'AquaPoolProvider') {
@@ -216,7 +216,8 @@ describe('get price test', () => {
                 }
                 pools.set(poolAddress, instanceData)
             }
-            provider.cache.pendingPoolData = {timestamp: from + tf, poolData: pools}
+            //the state at from + tf closes the period that starts at from
+            provider.cache.pendingPoolData.set(from, {slot: from, boundary: from + tf, servedLedger: null, poolData: pools})
             try {
                 const result = await provider.getPriceData({
                     baseAsset: usdcBase,

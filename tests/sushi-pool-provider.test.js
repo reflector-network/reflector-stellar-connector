@@ -33,10 +33,10 @@ describe('SushiPoolProvider', () => {
         })
 
         it('looks up factory GetPool entries for every pair, fee tier and ordering, deduping by pool', async () => {
-            const rpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockResolvedValue([
+            const rpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockResolvedValue({entries: [
                 {xdr: buildGetPoolEntry(SUSHI_FACTORY, USDT0_CONTRACT, USDC_CONTRACT, 500, FIXTURE_POOL)},
                 {xdr: buildGetPoolEntry(SUSHI_FACTORY, USDC_CONTRACT, USDT0_CONTRACT, 500, FIXTURE_POOL)}
-            ])}
+            ], latestLedger: 100})}
             provider.configure(rpc)
             const pools = await provider.getTargetPools(USDC, [USDT0, USDC], NETWORK)
             //USDC target skipped (same as base) - 1 pair * 4 fee tiers * 2 orderings
@@ -47,10 +47,10 @@ describe('SushiPoolProvider', () => {
         })
 
         it('keeps a connector per network when the shared instance is configured for multiple data sources', async () => {
-            const pubnetRpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockResolvedValue([
+            const pubnetRpc = {network: NETWORK, loadLedgerEntries: jest.fn().mockResolvedValue({entries: [
                 {xdr: buildGetPoolEntry(SUSHI_FACTORY, USDC_CONTRACT, USDT0_CONTRACT, 500, FIXTURE_POOL)}
-            ])}
-            const testnetRpc = {network: 'Test SDF Network ; September 2015', loadLedgerEntries: jest.fn().mockResolvedValue([])}
+            ], latestLedger: 100})}
+            const testnetRpc = {network: 'Test SDF Network ; September 2015', loadLedgerEntries: jest.fn().mockResolvedValue({entries: [], latestLedger: 100})}
             provider.configure(pubnetRpc)
             provider.configure(testnetRpc) //must not displace the pubnet connector
             const pools = await provider.getTargetPools(USDC, [USDT0], NETWORK)

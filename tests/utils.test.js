@@ -1,5 +1,5 @@
 /*eslint-disable no-undef */
-const {encodeAssetContractId, adjustPrecision} = require('../src/utils')
+const {encodeAssetContractId, adjustPrecision, rpcHost} = require('../src/utils')
 
 const futurenetPassphrase = 'Test SDF Future Network ; October 2022'
 
@@ -83,5 +83,16 @@ describe('adjustPrecision()', () => {
         expect(() => adjustPrecision('123', 2, 5)).toThrow()
         expect(() => adjustPrecision(123n, '2', 5)).toThrow()
         expect(() => adjustPrecision(123n, 2, '5')).toThrow()
+    })
+})
+describe('rpcHost()', () => {
+    test('keeps only the host, so an api key in the path or query never reaches a log line', () => {
+        expect(rpcHost('https://rpc.example.com/v1/AbCdEf0123456789?apikey=SECRET-TOKEN')).toBe('rpc.example.com')
+        expect(rpcHost('https://user:pa55word@rpc.example.com:8000/soroban')).toBe('rpc.example.com:8000')
+    })
+
+    test('is total, so a malformed url cannot throw out of an error path', () => {
+        for (const bad of ['not a url', '', null, undefined, 'http://', '::::'])
+            expect(rpcHost(bad)).toBe('invalid-url')
     })
 })

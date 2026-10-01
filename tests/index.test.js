@@ -100,6 +100,32 @@ describe('StellarProvider', () => {
         expect(result[1][1]).toEqual([{volume: 60n, quoteVolume: 120n, ts: 2000}])
     })
 
+    test('getPriceData waits for a running pool tick before it reads the cache', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
+        getPoolContracts.mockResolvedValue(new Map())
+        getDexVolumes.mockReturnValue([[]])
+        getPoolVolumes.mockReturnValue([[]])
+        const order = []
+        let release = null
+        provider.cache.whenIdle = jest.fn(() => new Promise(resolve => {
+            release = () => {
+                order.push('idle')
+                resolve()
+            }
+        }))
+        provider.cache.updateCache = jest.fn(() => {
+            order.push('update')
+            return Promise.resolve()
+        })
+        const result = provider.getPriceData({baseAsset: 'XLM', assets: ['USD:GISSUER'], from: 1000, period: 1000, count: 1})
+        await new Promise(resolve => setImmediate(resolve))
+        expect(provider.cache.updateCache).not.toHaveBeenCalled()
+        release()
+        await result
+        expect(order).toEqual(['idle', 'update'])
+    })
+
     test('getPriceData handles empty data', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
         provider.cache.period = 1000
@@ -304,5 +330,42 @@ describe('StellarProvider', () => {
         await expect(provider.getPriceData({baseAsset: 'XLM', assets: ['USD:GISSUER'], from: 60, period: 300, count: 1}))
             .rejects.toThrow('Unsupported period')
         expect(getPoolContracts).not.toHaveBeenCalled()
+    })
+
+    test('pool volumes are computed with the resolved guards, independently of the trades', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
+        getPoolContracts.mockResolvedValue(new Map())
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
+        getDexVolumes.mockReturnValue([[{volume: 5n, quoteVolume: 20n}]])
+        getPoolVolumes.mockReturnValue([[null]])
+
+        await provider.getPriceData({baseAsset: 'XLM', assets: ['USD:GISSUER'], from: 1000, period: 1000, count: 1})
+
+        expect(getPoolVolumes).toHaveBeenCalledWith(
+            expect.anything(),
+            'XLM',
+            ['USD:GISSUER'],
+            undefined,
+            1000,
+            1000,
+            1,
+            {minBaseVolume: 100}
+        )
+    })
+
+    test('a malformed pool guard override rejects the call', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
+        getPoolContracts.mockResolvedValue(new Map())
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
+        await expect(provider.getPriceData({
+            baseAsset: 'XLM',
+            assets: ['USD:GISSUER'],
+            from: 1000,
+            period: 1000,
+            count: 1,
+            options: {poolGuards: {minBaseVolume: -1}}
+        })).rejects.toThrow('Invalid pool guard value for minBaseVolume')
     })
 })

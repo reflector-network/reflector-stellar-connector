@@ -197,7 +197,9 @@ class AquaPoolProvider extends PoolProviderBase {
             const declared = this.__declaredTokens.get(contractId)
             const onChain = [...poolData.tokens].sort()
             if (!declared || declared.length !== 2 || onChain[0] !== declared[0] || onChain[1] !== declared[1]) {
-                console.warn({msg: 'Pool tokens do not match the declared pair', poolId: contractId, declared, onChain})
+                //a pool in the snapshot but absent from a freshly refreshed list is benign churn, not a provenance failure
+                const msg = declared ? 'Pool tokens do not match the declared pair' : 'Pool is not in the current declared list'
+                console.warn({msg, poolId: contractId, declared, onChain})
                 return null
             }
             const rawReserves = [poolData.reserves[0].toString(), poolData.reserves[1].toString()]

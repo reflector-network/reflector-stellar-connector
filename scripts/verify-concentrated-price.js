@@ -22,7 +22,10 @@ async function main() {
     const pools = await loadAquaPools(['concentrated'])
     console.log(`Loaded ${pools.length} concentrated pools from Aquarius API`)
     const rpc = new RpcConnector([rpcUrl], network)
-    const instances = await rpc.loadContractInstances(pools.map(p => p.address))
+    const snapshot = await rpc.loadPoolSnapshot(pools.map(p => p.address))
+    if (!snapshot)
+        throw new Error('Pool read was served at different ledgers - rerun the script')
+    const instances = snapshot.instances
 
     const simulate = createSimulate(rpc)
 

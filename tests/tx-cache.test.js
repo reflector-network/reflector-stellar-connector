@@ -24,9 +24,9 @@ describe('TxCache', () => {
         const createdAt = Math.floor(Date.now() / 1000)
         const stubConnector = {
             network: 'test',
-            //resolve immediately so the constructor worker exits on the first iteration
+            //the constructor only schedules the first pool tick, so these stubs are never polled
             getLedgerInfo: async () => ({latestLedgerCloseTime: createdAt + 60, latestLedger: 1}),
-            loadContractInstances: async () => new Map(),
+            loadPoolSnapshot: () => Promise.resolve(null),
             generateLedgerRanges: async () => [{from: 1, to: 1}],
             //xdrParseResult returns null for this tx — the cache must record it with zero trades
             fetchTransactions: async (from, to, cb) => cb({createdAt, txHash: 'aa', ledger: 1, resultXdr: buildFailedTxResultXdr()})
@@ -51,7 +51,7 @@ describe('TxCache', () => {
         const stubConnector = {
             network: 'test',
             getLedgerInfo: () => Promise.resolve({latestLedgerCloseTime: createdAt + 60, latestLedger: 7}),
-            loadContractInstances: () => Promise.resolve(new Map()),
+            loadPoolSnapshot: () => Promise.resolve(null),
             generateLedgerRanges: () => Promise.resolve([{from: 1, to: 2}]),
             fetchTransactions: (from, to, cb) => {
                 cb({createdAt, txHash: 'bad', ledger: 1, resultXdr: 'clearly-not-xdr'})

@@ -143,22 +143,84 @@ function adjustPrecision(value, digits, targetDigits = TARGET_DECIMALS) {
 }
 
 /**
- * Invokes Stellar RPC method directly
+ * Host of an RPC url, for logs: a paid endpoint often carries an api key in the path or query
+ * @param {string} url - rpc url
+ * @returns {string} host, or `invalid-url` when it cannot be parsed
+ */
+function rpcHost(url) {
+    try {
+        return new URL(url).host
+    } catch (e) {
+        return 'invalid-url'
+    }
+}
+
+//The url that answered last, per configured url list. Without it every request walked the list in configured order, so a
+//first url that hangs cost its whole deadline on every request, and a pool snapshot that has to finish within seconds of
+//the boundary could not. The same helper lives in reflector-shared helpers/entries-helper.js, oracle-client
+//src/rpc-helper.js and reflector-node src/utils/rpc-helper.js. Each node already reads from its own configured urls,
+//and a snapshot is proven by ledger numbers and close times, so the preference changes which url answers, not what a
+//node reports
+const lastGoodUrls = new Map()
+//distinct url lists one process uses: one per network
+const maxRememberedUrlLists = 16
+//a preference is dropped this long after it was set, so the configured order - the primary first - is tried again: a
+//node that failed over once would otherwise stay on a secondary that lags the primary long after the primary recovered
+const urlPreferenceTtl = 10 * 60 * 1000
+
+/**
+ * @param {string[]} urls - configured urls
+ * @returns {string[]} the url that answered last first, then the others in configured order; the configured order
+ * alone once the preference is older than urlPreferenceTtl
+ */
+function orderByLastGood(urls) {
+    const key = urls.join('\n')
+    const preferred = lastGoodUrls.get(key)
+    const index = preferred ? urls.indexOf(preferred.url) : -1
+    if (index < 0)
+        return urls
+    if (Date.now() - preferred.since >= urlPreferenceTtl) {
+        lastGoodUrls.delete(key)
+        return urls
+    }
+    //only the first occurrence moves: a url listed twice is still asked twice, so a failing request makes as many
+    //attempts as it did without the preference
+    return [urls[index], ...urls.slice(0, index), ...urls.slice(index + 1)]
+}
+
+/**
+ * @param {string[]} urls - configured urls
+ * @param {string} url - the url that answered
+ */
+function rememberGoodUrl(urls, url) {
+    const key = urls.join('\n')
+    const previous = lastGoodUrls.get(key)
+    //the time is kept while the same url keeps answering, so a preference still expires ten minutes after it was set
+    const since = previous && previous.url === url ? previous.since : Date.now()
+    //deleted and set again, so the first entry is always the list used longest ago
+    lastGoodUrls.delete(key)
+    lastGoodUrls.set(key, {url, since})
+    if (lastGoodUrls.size > maxRememberedUrlLists)
+        lastGoodUrls.delete(lastGoodUrls.keys().next().value)
+}
+
+/**
+ * Invokes Stellar RPC method directly, starting at the url that answered last
  * @param {string[]} rpcs - RPC URLs
  * @param {string} method - RPC method name
  * @param {{}} params - Parameters to pass to RPC
- * @param {{[timeout], [signal]}} [options]
+ * @param {{[timeout], [signal], [validateResult]}} [options] - request timeout, abort signal, and a validator that rejects an unusable answer
  * @return {Promise<any>}
  */
 async function invokeRpcMethod(rpcs, method, params = undefined, options = undefined) {
     for (let i = 0; i < 3; i++) { //max 3 attempts
         try {
             const errAggr = []
-            for (const rpcUrl of rpcs) {
+            for (const rpcUrl of orderByLastGood(rpcs)) {
                 let timeOut = null
                 try {
                 //eslint-disable-next-line prefer-const
-                    let {timeout = 15_000, signal} = options || {}
+                    let {timeout = 15_000, signal, validateResult} = options || {}
                     if (!signal) {
                         const abortController = new AbortController()
                         timeOut = setTimeout(() => abortController.abort(), timeout)
@@ -181,13 +243,17 @@ async function invokeRpcMethod(rpcs, method, params = undefined, options = undef
                     const data = await res.json()
                     if (data.error)
                         throw new Error('RPC error: ' + data.error.message)
+                    //a URL whose answer fails validation counts as a failed URL, so the next one is tried
+                    if (validateResult)
+                        validateResult(data.result, rpcUrl)
+                    rememberGoodUrl(rpcs, rpcUrl)
                     return data.result
                 } catch (e) {
                     let error = e
                     if (error.message.indexOf('RPC error: ') === 0) {//cleanup
                         error = error.message
                     }
-                    errAggr.push({url: rpcUrl, err: error})
+                    errAggr.push({host: rpcHost(rpcUrl), err: error})
                 } finally {
                     if (timeOut) {
                         clearTimeout(timeOut)
@@ -207,6 +273,7 @@ async function invokeRpcMethod(rpcs, method, params = undefined, options = undef
 
 module.exports = {
     invokeRpcMethod,
+    rpcHost,
     getVWAP,
     normalizeTimestamp,
     encodeAssetContractId,

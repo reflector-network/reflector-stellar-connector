@@ -56,7 +56,10 @@ async function main() {
     const pools = await loadFactoryPools()
     console.log(`Discovered ${pools.length} SushiSwap pools from factory state`)
     const rpc = new RpcConnector([rpcUrl], network)
-    const instances = await rpc.loadContractInstances(pools.map(p => p.pool))
+    const snapshot = await rpc.loadPoolSnapshot(pools.map(p => p.pool))
+    if (!snapshot)
+        throw new Error('Pool read was served at different ledgers - rerun the script')
+    const instances = snapshot.instances
 
     const simulate = createSimulate(rpc)
 

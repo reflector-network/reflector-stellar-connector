@@ -20,8 +20,9 @@ const {adjustPrecision} = require('../utils')
  * @return {Trade[]|null}
  */
 function xdrParseResult(tx) {
-    const innerResult = xdr.TransactionResult.fromXdr(tx.resultXdr, 'base64').result
     try {
+        //the decode itself is the most likely thing to fail (truncated field, unknown protocol result code), so it belongs inside the guard
+        const innerResult = xdr.TransactionResult.fromXdr(tx.resultXdr, 'base64').result
         if (innerResult.type !== 'txSuccess' && innerResult.type !== 'txFeeBumpInnerSuccess') //failed tx
             return null
         let opResults
@@ -32,7 +33,7 @@ function xdrParseResult(tx) {
         }
         return (opResults || []).map(opR => parseRawOpResult(opR, tx.txHash)).flat().filter(v => !!v)
     } catch (err) {
-        console.error({err, msg: 'Error processing tx', tx: tx.hash})
+        console.error({err, msg: 'Error processing tx', tx: tx?.txHash})
         return null
     }
 }
@@ -71,7 +72,9 @@ function processDexTrade(claimedAtom, txHash) {
             type = 'pool'
             break
         default:
-            throw new Error(`Unsupported claimed atom type: ` + claimedAtom.type)
+            //a protocol upgrade that adds a claim atom type must cost this one atom, not every trade in the transaction
+            console.warn({msg: 'Unsupported claimed atom type', type: claimedAtom.type, txHash})
+            return null
     }
     const res = {
         type,
@@ -93,4 +96,4 @@ function processDexTrade(claimedAtom, txHash) {
     return res
 }
 
-module.exports = {xdrParseResult}
+module.exports = {xdrParseResult, processDexTrade}

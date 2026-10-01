@@ -21,7 +21,7 @@ class TxCache {
         this.size = cacheSize
         this.period = period
         this.rpcConnector = rpcConnector
-        this.__worker(normalizeTimestamp(Date.now(), this.period * 1000))
+        this.__tick = this.__worker(normalizeTimestamp(Date.now(), this.period * 1000))
     }
 
     get network() {
@@ -36,6 +36,8 @@ class TxCache {
         try {
             let dataTimestamp = 0
             while (targetTimestamp + 10000 > Date.now()) { //wait up to 10 seconds after the target timestamp
+                if (this.__disposed)
+                    return
                 const info = await this.rpcConnector.getLedgerInfo()
                 const ledgerCloseTime = (info?.latestLedgerCloseTime ?? 0) * 1000
                 if (ledgerCloseTime > targetTimestamp) {
@@ -49,8 +51,12 @@ class TxCache {
                 console.warn({msg: 'Unable to receive ledger close time', targetTimestamp, network: this.network})
                 return
             }
+            if (this.__disposed)
+                return
             //update cache with recent data
             const poolData = await this.rpcConnector.loadContractInstances([...this.poolContracts.keys()])
+            if (this.__disposed)
+                return
             if (!poolData || poolData.size === 0) {
                 //still stage empty poolData so the current slot is marked worker-visited
                 console.warn({msg: 'No pool contracts defined for stellar-connector pools instance', network: this.network})
@@ -63,7 +69,9 @@ class TxCache {
             const timeout = targetTimestamp - 100 - Date.now() //run 100 milliseconds before the next period
             console.debug({msg: 'Stellar-connector timeout', network: this.network, timeout})
             if (!this.__disposed)
-                this.__workerTimeout = setTimeout(() => this.__worker(targetTimestamp), Math.max(1, timeout))
+                this.__workerTimeout = setTimeout(() => {
+                    this.__tick = this.__worker(targetTimestamp)
+                }, Math.max(1, timeout))
         }
     }
 
@@ -103,6 +111,24 @@ class TxCache {
      * @type {{timestamp: number, poolData: Map<string, {key: string, xdr: string, lastModifiedLedger: number}>}}
      */
     pendingPoolData = null
+    /**
+     * The promise of the tick currently running, so {@link dispose} can wait for it
+     * @type {Promise<void>|null}
+     * @private
+     */
+    __tick = null
+    /**
+     * Handle of the timer that starts the next tick. Declared here so it reads `null` before the first tick
+     * completes instead of being absent, which is what makes the disposal tests deterministic
+     * @type {object|null}
+     * @private
+     */
+    __workerTimeout = null
+    /**
+     * @type {boolean}
+     * @private
+     */
+    __disposed = false
     /**
      * @type {Map<string, {decimals: number}>}
      */
@@ -249,24 +275,29 @@ class TxCache {
         const tempTxData = new Map()
         //function to add transaction data to the temporary map
         const addToTemp = (tx) => {
-            //normalize timestamp
-            const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
+            try {
+                //normalize timestamp
+                const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
 
-            //get or create timestamp data
-            const tsTransactions = this.__ensureTimestampData(txTimestamp)
-            if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
-                return
+                //get or create timestamp data
+                const tsTransactions = this.__ensureTimestampData(txTimestamp)
+                if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
+                    return
 
-            //try get trades from the transaction
-            const trades = xdrParseResult(tx) || []
-            let ledgerData = tempTxData.get(tx.ledger)
-            if (!ledgerData) {
-                ledgerData = {txs: [], hashes: new Set(), timestamp: txTimestamp}
-                tempTxData.set(tx.ledger, ledgerData)
+                //try get trades from the transaction
+                const trades = xdrParseResult(tx) || []
+                let ledgerData = tempTxData.get(tx.ledger)
+                if (!ledgerData) {
+                    ledgerData = {txs: [], hashes: new Set(), timestamp: txTimestamp}
+                    tempTxData.set(tx.ledger, ledgerData)
+                }
+                //push tx and trade data
+                ledgerData.txs.push({trades, txHash: tx.txHash})
+                ledgerData.hashes.add(tx.txHash)
+            } catch (err) {
+                //a single unusable transaction must never fail the range it arrived in
+                console.error({msg: 'Error processing transaction', txHash: tx?.txHash, ledger: tx?.ledger, err})
             }
-            //push tx and trade data
-            ledgerData.txs.push({trades, txHash: tx.txHash})
-            ledgerData.hashes.add(tx.txHash)
         }
         //load ranges in parallel
         const results = await Promise.all(ranges.map(range => this.rpcConnector.fetchTransactions(range.from, range.to, tx => addToTemp(tx))
@@ -382,12 +413,17 @@ class TxCache {
         return tsData
     }
 
-    dispose() {
+    /**
+     * Stop the worker and wait for a tick that is already running, so no request outlives the cache
+     * @return {Promise<void>}
+     */
+    async dispose() {
+        this.__disposed = true
         if (this.__workerTimeout) {
             clearTimeout(this.__workerTimeout)
             this.__workerTimeout = null
-            this.__disposed = true
         }
+        await this.__tick
     }
 }
 

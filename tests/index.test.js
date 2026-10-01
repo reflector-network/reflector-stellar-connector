@@ -72,6 +72,7 @@ describe('StellarProvider', () => {
 
     test('getData returns correct structure', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         getPoolContracts.mockResolvedValue(new Map())
         provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexVolumes.mockReturnValue([
@@ -101,6 +102,7 @@ describe('StellarProvider', () => {
 
     test('getPriceData handles empty data', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         getPoolContracts.mockResolvedValue(new Map())
         provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexVolumes.mockReturnValue([null, []])
@@ -121,6 +123,7 @@ describe('StellarProvider', () => {
 
     test('getPriceData fetches XLM cross-price data when baseAsset is not XLM', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
         const asset = 'TOKEN:GISSUER'
         getPoolContracts.mockResolvedValue(new Map())
@@ -149,6 +152,7 @@ describe('StellarProvider', () => {
 
     test('getPriceData does not fetch XLM cross-price data when baseAsset is XLM', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         getPoolContracts.mockResolvedValue(new Map())
         provider.cache.updateCache = jest.fn().mockResolvedValue()
         getDexVolumes.mockReturnValue([[null]])
@@ -169,6 +173,7 @@ describe('StellarProvider', () => {
 
     test('getCrossVolumes incorporates XLM price into asset volumes', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
         const asset = 'TOKEN:GISSUER'
         getPoolContracts.mockResolvedValue(new Map())
@@ -203,6 +208,7 @@ describe('StellarProvider', () => {
     //must yield TOKEN priced in USDC at 200/400 = 0.5.
     test('getPriceData computes TOKEN price in USDC via XLM cross pair', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
         const asset = 'TOKEN:GISSUER'
         getPoolContracts.mockResolvedValue(new Map())
@@ -240,6 +246,7 @@ describe('StellarProvider', () => {
     //a missing cross/base rate in one period must not skip later periods
     test('getPriceData fills later periods even when an earlier period has no cross/base data', async () => {
         await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 1000
         const usdcBase = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
         const asset = 'TOKEN:GISSUER'
         getPoolContracts.mockResolvedValue(new Map())
@@ -278,5 +285,24 @@ describe('StellarProvider', () => {
         expect(result[0][0]).toEqual([{volume: 0n, quoteVolume: 0n, ts: 1000}])
         //period 1 still folds the cross contribution
         expect(result[1][0]).toEqual([{volume: 200n, quoteVolume: 400n, ts: 2000}])
+    })
+
+    test('init disposes the cache built by a previous init', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        const firstCache = provider.cache
+        firstCache.dispose = jest.fn().mockResolvedValue(undefined)
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        expect(firstCache.dispose).toHaveBeenCalledTimes(1)
+        expect(provider.cache).not.toBe(firstCache)
+    })
+
+    test('getPriceData rejects a period the cache does not aggregate', async () => {
+        await provider.init({rpcUrls: ['url'], network: 'network', cacheDir})
+        provider.cache.period = 60
+        getPoolContracts.mockResolvedValue(new Map())
+        provider.cache.updateCache = jest.fn().mockResolvedValue()
+        await expect(provider.getPriceData({baseAsset: 'XLM', assets: ['USD:GISSUER'], from: 60, period: 300, count: 1}))
+            .rejects.toThrow('Unsupported period')
+        expect(getPoolContracts).not.toHaveBeenCalled()
     })
 })

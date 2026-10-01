@@ -147,10 +147,11 @@ class StellarProvider {
         if (!cacheDir) {
             throw new Error('Invalid cache directory')
         }
+        //a previous cache keeps a minute timer and an RPC poll alive until it is disposed
+        await this.dispose()
         this.connector = new RpcConnector(rpcUrls, network)
         this.cache = new TxCache(this.connector)
         configurePools(cacheDir, this.connector)
-        await Promise.resolve()
     }
 
     get network() {
@@ -170,6 +171,9 @@ class StellarProvider {
      * @return {Array<Array<Array<{volume: BigInt, quoteVolume: BigInt, ts: number}>>>}
      */
     async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets}) {
+        //the cache buckets transactions and pool snapshots by its own period; any other value silently mis-weights pools
+        if (period !== this.cache.period)
+            throw new Error(`Unsupported period ${period}. This connector aggregates ${this.cache.period}-second periods.`)
         //set crossAssets if not provided
         if (!crossAssets) {
             crossAssets = []
@@ -209,7 +213,7 @@ class StellarProvider {
     }
 
     dispose() {
-        this.cache.dispose()
+        return this.cache ? this.cache.dispose() : Promise.resolve()
     }
 }
 

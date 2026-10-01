@@ -1,17 +1,28 @@
 {
   "name": "@reflector/stellar-connector",
-  "version": "4.2.0-rc2",
+  "version": "4.3.0-rc1",
   "description": "Stellar asset price feed connector for Reflector backend",
   "private": true,
   "author": "team@stellar.expert",
   "license": "MIT",
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/tests/get-price.test.js",
+      "<rootDir>/tests/.*\\.live\\.test\\.js"
+    ]
+  },
   "main": "src/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:reflector-network/reflector-stellar-connector.git"
   },
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js -i",
+    "test:live": "node --experimental-vm-modules node_modules/jest/bin/jest.js -i --config jest.live.config.js"
   },
   "peerDependencies": {
     "@stellar/stellar-sdk": ">=17"

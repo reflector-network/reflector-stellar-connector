@@ -270,7 +270,10 @@ describe('get price test', () => {
         }
 
         console.table(collectedLogs)
-        fs.writeFileSync('collected-logs.json', JSON.stringify(collectedLogs))
+        //diagnostic output belongs outside the repository
+        const logFile = process.env.STELLAR_CONNECTOR_LOG_FILE || path.join(os.tmpdir(), 'stellar-connector-collected-logs.json')
+        fs.writeFileSync(logFile, JSON.stringify(collectedLogs))
+        console.info({msg: 'Collected logs written', logFile})
 
         console.info('Final Results:')
         console.table(finalRes)

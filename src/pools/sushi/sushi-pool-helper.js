@@ -1,4 +1,4 @@
-const {xdr, Address} = require('@stellar/stellar-sdk')
+const {xdr, Address, scValToNative} = require('@stellar/stellar-sdk')
 const {DEFAULT_DECIMALS, adjustPrecision} = require('../../utils')
 const {extractInstanceStorage, getContractInstanceValues} = require('../utils')
 
@@ -10,12 +10,13 @@ const SUSHI_FACTORY = 'CD3KRKGDRVWPXVB3VXLUMQKMX6XZ6Q2H334IVZD4XXNAMKSRVQL5GLYF'
  * @param {string} token0 - first token contract id
  * @param {string} token1 - second token contract id
  * @param {number} fee - fee tier (hundredths of a bip)
+ * @param {string} [factory] - factory contract id; the pubnet SushiSwap V3 factory by default
  * @return {string}
  */
-function buildGetPoolLedgerKey(token0, token1, fee) {
+function buildGetPoolLedgerKey(token0, token1, fee, factory = SUSHI_FACTORY) {
     return xdr.LedgerKey.contractData(
         new xdr.LedgerKeyContractData({
-            contract: new Address(SUSHI_FACTORY).toScAddress(),
+            contract: new Address(factory).toScAddress(),
             key: xdr.ScVal.scvVec([
                 xdr.ScVal.scvSymbol('GetPool'),
                 new Address(token0).toScVal(),
@@ -28,13 +29,15 @@ function buildGetPoolLedgerKey(token0, token1, fee) {
 }
 
 /**
- * Decode the pool address from a factory GetPool ledger entry
+ * Decode a factory GetPool ledger entry: the pool it points to and the token pair of its key
  * @param {string} entryXdr - LedgerEntryData in base64 XDR
- * @return {string} - pool contract id
+ * @return {{pool: string, tokens: string[]}} - pool contract id and the key's two token contract ids
  */
 function parseGetPoolEntry(entryXdr) {
     const data = xdr.LedgerEntryData.fromXdr(entryXdr, 'base64')
-    return Address.fromScVal(data.value.val).toString()
+    //the key is ['GetPool', token0, token1, fee]
+    const [, token0, token1] = scValToNative(data.value.key)
+    return {pool: Address.fromScVal(data.value.val).toString(), tokens: [token0, token1]}
 }
 
 /**

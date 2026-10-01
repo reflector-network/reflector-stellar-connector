@@ -15,6 +15,7 @@ function createCache(hasPoolData) {
     return {
         period: 60,
         hasPoolDataForPeriod: jest.fn(() => hasPoolData),
+        isPairValidForPeriod: jest.fn(() => true),
         getTradesForPeriod: jest.fn(() => [{
             assetSold: BASE,
             assetBought: ASSET,
@@ -42,5 +43,20 @@ describe('getDexVolumes needs the period pool snapshot', () => {
         expect(period[0].volume).toBe(500000000000000n)
         expect(period[0].quoteVolume).toBe(1000000000000000n)
         expect(console.warn).not.toHaveBeenCalled()
+    })
+
+    test('an asset whose pools discovery did not try for the period counts no trades', () => {
+        const cache = createCache(true)
+        cache.isPairValidForPeriod = jest.fn(() => false)
+        const [period] = getDexVolumes(cache, BASE, [ASSET], NETWORK, 1780009200, 60, 1)
+        expect(period[0]).toBeUndefined()
+        expect(cache.isPairValidForPeriod).toHaveBeenCalledWith(1780009200, 1780009260, BASE, ASSET)
+    })
+
+    test('on the cross path each pair is checked against the cross asset, the base asset included', () => {
+        const cache = createCache(true)
+        getDexVolumes(cache, 'XLM', [BASE, ASSET], NETWORK, 1780009200, 60, 1)
+        expect(cache.isPairValidForPeriod).toHaveBeenCalledWith(1780009200, 1780009260, 'XLM', BASE)
+        expect(cache.isPairValidForPeriod).toHaveBeenCalledWith(1780009200, 1780009260, 'XLM', ASSET)
     })
 })

@@ -74,7 +74,7 @@ describe('AquaPoolProvider provenance', () => {
     })
 
     test('serves pubnet only', async () => {
-        expect(await provider.getTargetPools('XLM', ['AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'], Networks.TESTNET)).toEqual([])
+        expect(await provider.getTargetPools('XLM', ['AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'], Networks.TESTNET)).toEqual(new Map([['AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA', []]]))
     })
 
     test('rejects an instance whose tokens are not the declared pair', () => {

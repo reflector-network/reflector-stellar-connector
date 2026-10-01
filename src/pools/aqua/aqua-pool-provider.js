@@ -6,11 +6,31 @@ const {encodeAssetContractId, normalizeTimestamp} = require('../../utils')
 const {calculateConcentratedPrice, calculatePoolVolumes} = require('../utils')
 const PoolProviderBase = require('../pool-provider-base')
 const PoolType = require('../pool-type')
-const {loadAquaPools} = require('./aqua-api')
+const {loadAquaPools, AQUA_API_URL} = require('./aqua-api')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 
 const AQUA_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
 const AQUA_CACHE_FILENAME = 'aqua-pools.json'
+
+/**
+ * @param {string} [value] - the data source's aquaListUrl
+ * @return {string} the pool list URL to request, exactly as given; the default when unset
+ */
+function resolveListUrl(value) {
+    if (value === undefined || value === null)
+        return AQUA_API_URL
+    let url = null
+    if (typeof value === 'string') {
+        try {
+            url = new URL(value)
+        } catch (err) {
+            url = null
+        }
+    }
+    if (!url || url.protocol !== 'https:')
+        throw new Error('Aqua provider setting aquaListUrl must be an https URL')
+    return value
+}
 
 class AquaPoolProvider extends PoolProviderBase {
 
@@ -23,6 +43,20 @@ class AquaPoolProvider extends PoolProviderBase {
      * @private
      */
     __cached = null
+
+    /**
+     * The URL __cached was loaded from: a list from another URL describes another index and is never used
+     * @type {string|null}
+     * @private
+     */
+    __listUrl = null
+
+    /**
+     * The URL the refresh schedule and failure cooldown belong to
+     * @type {string|null}
+     * @private
+     */
+    __refreshUrl = null
 
     /**
      * Token pair the API claimed for each pool address, checked against the pool's own storage before use
@@ -54,7 +88,12 @@ class AquaPoolProvider extends PoolProviderBase {
             const raw = fs.readFileSync(this.__cacheFile, 'utf8')
             const parsed = JSON.parse(raw)
             if (Array.isArray(parsed)) {
+                //written before the list URL was configurable: it came from the default URL
                 this.__cached = parsed
+                this.__listUrl = AQUA_API_URL
+            } else if (parsed && typeof parsed.url === 'string' && Array.isArray(parsed.pools)) {
+                this.__cached = parsed.pools
+                this.__listUrl = parsed.url
             }
         } catch (err) {
             if (err.code !== 'ENOENT') {
@@ -68,7 +107,7 @@ class AquaPoolProvider extends PoolProviderBase {
             return
         const tmpFile = this.__cacheFile + '.tmp'
         try {
-            await fs.promises.writeFile(tmpFile, JSON.stringify(this.__cached))
+            await fs.promises.writeFile(tmpFile, JSON.stringify({url: this.__listUrl, pools: this.__cached}))
             await fs.promises.rename(tmpFile, this.__cacheFile)
         } catch (err) {
             console.error({msg: 'Failed to persist Aqua pool cache to disk', file: this.__cacheFile, err})
@@ -76,17 +115,24 @@ class AquaPoolProvider extends PoolProviderBase {
     }
 
     /**
-     * Load the pool list from the Aqua API with its request limits applied
+     * Load the pool list from an Aqua API URL with its request limits applied
+     * @param {string} url - the first page of the pool list
      * @returns {Promise<{address: string, assets: string[], type: string}[]>}
      */
-    async __loadPools() {
-        return await loadAquaPools()
+    async __loadPools(url) {
+        return await loadAquaPools({baseUrl: url})
     }
 
-    async __maybeRefreshPools() {
+    async __maybeRefreshPools(url) {
         if (this.__refreshPromise) { //refresh already in progress - wait for it instead of starting another one
             await this.__refreshPromise
             return
+        }
+        //the hourly schedule and the failure cooldown belong to one list URL: a new URL is loaded at once
+        if (url !== this.__refreshUrl) {
+            this.__refreshUrl = url
+            this.__lastUpdated = 0
+            this.__failedAt = 0
         }
         const now = Date.now()
         const trimmedTs = normalizeTimestamp(now, 60 * 60 * 1000) //trim to hours in order to refresh every 60 minutes
@@ -99,7 +145,8 @@ class AquaPoolProvider extends PoolProviderBase {
         }
         this.__refreshPromise = (async () => {
             try {
-                this.__cached = await this.__loadPools()
+                this.__cached = await this.__loadPools(url)
+                this.__listUrl = url
                 this.__lastUpdated = trimmedTs
                 this.__failedAt = 0
                 await this.__persistCache()
@@ -122,56 +169,56 @@ class AquaPoolProvider extends PoolProviderBase {
     }
 
     /**
-     * Returns a map of pools for the given base asset and assets.
+     * Aqua pools pairing the base asset with each tracked asset, from the cached pool list
      * @param {string} baseAsset - oracle base token
-     * @param {string[]} assets - oracle base token
+     * @param {string[]} assets - tracked assets
      * @param {string} network - network passphrase
-     * @return {string[]}
+     * @param {{aquaListUrl: string}} [settings] - provider settings from the data source; unset means the default URL
+     * @return {Promise<Map<string, string[]>>} pool addresses per asset; rejects when there is no pool list
      */
-    async getTargetPools(baseAsset, assets, network) {
-        try {
-            //the Aqua API indexes pubnet only; matching its addresses on another network compares unrelated contract ids
-            if (network !== Networks.PUBLIC) {
-                console.debug({msg: 'Aqua pool provider serves pubnet only', network})
-                return []
+    async getTargetPools(baseAsset, assets, network, settings = {}) {
+        const result = new Map(assets.map(asset => [asset, []]))
+        //the Aqua API indexes pubnet only; matching its addresses on another network compares unrelated contract ids
+        if (network !== Networks.PUBLIC) {
+            console.debug({msg: 'Aqua pool provider serves pubnet only', network})
+            return result
+        }
+        const url = resolveListUrl(settings.aquaListUrl)
+        await this.__maybeRefreshPools(url)
+        const data = this.__cached
+        //without a list from this URL the provider has not answered, and must not read as "no pools"; the host
+        //alone is named, because a list URL can carry a key in its path or query
+        if (!data || this.__listUrl !== url)
+            throw new Error(`No Aqua pool list loaded from ${new URL(url).host}`)
+        //remember what the API claims each pool holds, so the on-chain instance can be checked against it
+        this.__declaredTokens = new Map(data.map(pool => [pool.address, [...pool.assets].sort()]))
+        const baseToken = encodeAssetContractId(baseAsset, network)
+        const assetsByToken = new Map()
+        for (const asset of assets) {
+            try {
+                assetsByToken.set(encodeAssetContractId(asset, network), asset)
+            } catch (err) {
+                //an asset with no contract id has no Aqua pool, and must not fail the others
+                console.warn({msg: 'Skipping Aqua pair', baseAsset, asset, network, err: err.message})
             }
-            await this.__maybeRefreshPools()
-            const data = this.__cached
-            if (!data)
-                return []
-            //remember what the API claims each pool holds, so the on-chain instance can be checked against it
-            this.__declaredTokens = new Map(data.map(pool => [pool.address, [...pool.assets].sort()]))
-            const baseToken = encodeAssetContractId(baseAsset, network)
-            const tokens = assets.map(a => encodeAssetContractId(a, network))
-            const getQuoteTokenFn = (pool) => {
-                if (!pool.type //check if pool has type
+        }
+        for (const pool of data) {
+            if (!pool.type //check if pool has type
                 || !pool.assets //check if pool has assets
                 || pool.assets.length !== 2 //check for 2 assets
                 || new Set(pool.assets).size !== 2 //check for duplicates
-                ) {
-                    console.warn({msg: 'Skipping pool with invalid data', poolId: pool.address, type: pool.type, assets: pool.assets})
-                    return null
-                }
-                const poolQuoteToken = pool.assets.find(a => a !== baseToken)
-                if (!(pool.assets.includes(baseToken) && tokens.includes(poolQuoteToken))) {
-                    return null
-                }
-                return poolQuoteToken
+            ) {
+                console.warn({msg: 'Skipping pool with invalid data', poolId: pool.address, type: pool.type, assets: pool.assets})
+                continue
             }
-
-            const targetPools = []
-            for (const pool of data) {
-                const quoteToken = getQuoteTokenFn(pool)
-                if (!quoteToken)
-                    continue
-                targetPools.push(pool.address)
-            }
-            console.debug({msg: 'Pools found', baseAsset: baseToken, pools: targetPools})
-            return targetPools
-        } catch (err) {
-            console.error({msg: `Error loading pool list for ${this.constructor.name} provider`, err})
-            return []
+            if (!pool.assets.includes(baseToken))
+                continue
+            const asset = assetsByToken.get(pool.assets.find(a => a !== baseToken))
+            if (asset)
+                result.get(asset).push(pool.address)
         }
+        console.debug({msg: 'Pools found', baseAsset: baseToken, pools: Object.fromEntries(result)})
+        return result
     }
 
     /**

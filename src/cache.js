@@ -1,6 +1,6 @@
 const {StrKey} = require('@stellar/stellar-sdk')
 const {xdrParseResult} = require('./dex/meta-processor')
-const {normalizeTimestamp, encodeAssetContractId, DEFAULT_DECIMALS} = require('./utils')
+const {normalizeTimestamp, encodeAssetContractId, DEFAULT_DECIMALS, poolPairKey} = require('./utils')
 const {takePoolSnapshot} = require('./pool-snapshot')
 
 //a tick starts this long before its boundary, so it already holds a read of the period's last ledger when the next
@@ -62,9 +62,13 @@ class TxCache {
                 console.warn({msg: 'Pool contracts not known yet - no pool snapshot for period', network: this.network, boundary})
                 return
             }
+            //the pool set read and the pairs its discovery tried travel with the snapshot: decoding it with a later
+            //discovery's set would drop the pools of a provider that failed since, beside pairs that still count
+            const poolContracts = this.poolContracts
+            const validPairs = this.validPairs
             const result = await takePoolSnapshot({
                 rpcConnector: this.rpcConnector,
-                contracts: [...this.poolContracts.keys()],
+                contracts: [...poolContracts.keys()],
                 boundary,
                 deadline: targetTimestamp + snapshotDeadline,
                 isCancelled: () => this.__disposed
@@ -78,7 +82,8 @@ class TxCache {
             }
             //the state at the period's last ledger belongs to the period that the boundary closes, beside its DEX trades
             const slot = boundary - this.period
-            this.pendingPoolData.set(slot, {slot, boundary, servedLedger: result.servedLedger, poolData: result.instances})
+            const {servedLedger, instances: poolData} = result
+            this.pendingPoolData.set(slot, {slot, boundary, servedLedger, poolData, poolContracts, validPairs})
             //an entry this old would be evicted on its next apply anyway (__evictExpired keeps only `size` slots), so
             //dropping it here unapplied cannot discard anything that could still land in a kept slot
             const oldestKeptSlot = slot - this.size * this.period
@@ -115,8 +120,8 @@ class TxCache {
      */
     __latestTimestamp = 0
     /**
-     * Pools data structure: key is the pool contract ID and value are the tokens and their reserves. poolData is null until the period's pool snapshot is applied; then a Map, empty when the snapshot holds no pools.
-     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}> | null, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
+     * Pools data structure: key is the pool contract ID and value are the tokens and their reserves. poolData is null until the period's pool snapshot is applied; then a Map, empty when the snapshot holds no pools. validPairs is null until the period's snapshot is applied; then the pairs whose pools discovery tried for it.
+     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}> | null, validPairs: Set<string>|null, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
      * @private
      */
     timestampData = new Map()
@@ -127,8 +132,21 @@ class TxCache {
      */
     poolContracts = null
     /**
-     * Snapshots taken and not yet applied, by the slot they belong to
-     * @type {Map<number, {slot: number, boundary: number, servedLedger: number|null, poolData: Map<string, {key: string, xdr: string, lastModifiedLedgerSeq: number}>}>}
+     * Keys of the (base, asset) pairs whose pools discovery tried for poolContracts (poolPairKey); null until the
+     * first updateCache
+     * @type {Set<string>|null}
+     * @private
+     */
+    validPairs = null
+    /**
+     * Discovery results by the base asset they were discovered for; poolContracts and validPairs are their union
+     * @type {Map<string, {poolContracts: Map<string, PoolProviderBase>, validPairs: Set<string>}>}
+     * @private
+     */
+    __discoveries = new Map()
+    /**
+     * Snapshots taken and not yet applied, by the slot they belong to, with the pool set they were read with
+     * @type {Map<number, {slot: number, boundary: number, servedLedger: number|null, poolData: Map<string, {key: string, xdr: string, lastModifiedLedgerSeq: number}>, poolContracts: Map<string, PoolProviderBase>, validPairs: Set<string>}>}
      */
     pendingPoolData = new Map()
     /**
@@ -232,6 +250,24 @@ class TxCache {
         return true
     }
 
+    /**
+     * Whether every slot in the range was read with a pool set whose discovery tried the pair's pools
+     * @param {number} from - period range start
+     * @param {number} to - period range end
+     * @param {string} baseAsset - base asset of the pair; the cross asset on the cross path
+     * @param {string} asset - tracked asset
+     * @return {boolean}
+     */
+    isPairValidForPeriod(from, to, baseAsset, asset) {
+        const key = poolPairKey(baseAsset, asset)
+        for (let ts = from; ts < to; ts += this.period) {
+            const data = this.timestampData.get(ts)
+            if (!data || !data.validPairs || !data.validPairs.has(key))
+                return false
+        }
+        return true
+    }
+
 
     /**
      * Update tokens metadata in cache by loading it from the blockchain
@@ -287,11 +323,23 @@ class TxCache {
      * @param {number} period - Period in seconds
      * @param {number} limit - Number of periods to fetch
      * @param {Map<string, PoolProviderBase>} poolContracts - List of pool contracts to fetch with their providers
+     * @param {Set<string>} [validPairs] - pairs whose pools discovery tried (poolPairKey); none when omitted
+     * @param {string} [discoveryKey] - the base asset the discovery was made for
      * @return {Promise<void>}
      */
-    async updateCache(period, limit, poolContracts) {
-        //update tracked contracts
-        this.poolContracts = poolContracts
+    async updateCache(period, limit, poolContracts, validPairs = new Set(), discoveryKey = '') {
+        //update tracked contracts, and the pairs their discovery tried. Each base asset's call replaces its own
+        //discovery and the tick reads the union, so calls for different base assets on one source cannot take turns
+        //erasing each other's pools and pairs
+        this.__discoveries.set(discoveryKey, {poolContracts, validPairs})
+        this.poolContracts = new Map()
+        this.validPairs = new Set()
+        for (const discovery of this.__discoveries.values()) {
+            for (const [contractId, provider] of discovery.poolContracts)
+                this.poolContracts.set(contractId, provider)
+            for (const pair of discovery.validPairs)
+                this.validPairs.add(pair)
+        }
         //process transaction data
         await this.__processTxData(period, limit)
         //process pending pool data
@@ -360,13 +408,13 @@ class TxCache {
      * @private
      */
     __processPoolData() {
-        for (const {slot, boundary, servedLedger, poolData} of this.pendingPoolData.values()) {
+        for (const {slot, boundary, servedLedger, poolData, poolContracts, validPairs} of this.pendingPoolData.values()) {
             const slotPools = new Map()
             const appliedPools = []
             for (const [contractId, instanceData] of poolData) {
-                const provider = this.poolContracts?.get(contractId)
+                const provider = poolContracts?.get(contractId)
                 if (!provider)
-                    continue //no longer tracked - skip
+                    continue //not in the pool set the snapshot was read with - skip
                 //the state is taken at the boundary, so a stableswap amplification ramp is evaluated there
                 const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, contractId, this.network,
                     this.tokensMeta, instanceData.lastModifiedLedgerSeq, boundary) || {}
@@ -376,7 +424,9 @@ class TxCache {
                 appliedPools.push({poolId: contractId, tokens, reserves: [reserves[0].toString(), reserves[1].toString()]})
             }
             //a period older than the cache keeps is recreated here and evicted by the same update
-            this.__ensureTimestampData(slot).poolData = slotPools
+            const slotData = this.__ensureTimestampData(slot)
+            slotData.poolData = slotPools
+            slotData.validPairs = validPairs || new Set()
             //the reserves this node actually priced with, per period, so an excursion can be reconstructed instead of inferred
             console.info({msg: 'Pool reserves snapshot', network: this.network, timestamp: slot, boundary, servedLedger, pools: appliedPools})
         }
@@ -409,7 +459,7 @@ class TxCache {
         let tsData = this.timestampData.get(timestamp)
         if (tsData)
             return tsData
-        tsData = {trades: [], poolData: null, processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
+        tsData = {trades: [], poolData: null, validPairs: null, processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
         this.timestampData.set(timestamp, tsData)
         if (timestamp > this.__latestTimestamp)
             this.__latestTimestamp = timestamp

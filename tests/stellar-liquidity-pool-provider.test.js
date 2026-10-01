@@ -17,57 +17,42 @@ describe('StellarLiquidityPoolProvider', () => {
     })
 
     describe('getTargetPools', () => {
-        it('should return array of pool keys for given assets', async () => {
-            const baseAsset = 'XLM'
-            const assets = ['USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP', 'EUR:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP']
-            const network = 'Public Global Stellar Network ; September 2015'
+        const network = 'Public Global Stellar Network ; September 2015'
+        const USD = 'USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP'
+        const EUR = 'EUR:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP'
 
-            const result = await provider.getTargetPools(baseAsset, assets, network)
-            expect(Array.isArray(result)).toBe(true)
-            expect(result.length).toBe(2)
-            result.forEach(key => {
+        it('returns the pool key of every asset', async () => {
+            const result = await provider.getTargetPools('XLM', [USD, EUR], network)
+            expect([...result.keys()]).toEqual([USD, EUR])
+            for (const pools of result.values()) {
+                expect(pools).toHaveLength(1)
                 //32-byte pool id, hex encoded from the hash view itself
-                expect(key).toMatch(/^[0-9a-f]{64}$/)
-            })
+                expect(pools[0]).toMatch(/^[0-9a-f]{64}$/)
+            }
         })
 
-        it('should filter out invalid pool keys (same assets)', async () => {
-            const baseAsset = 'XLM'
-            const assets = ['XLM', 'USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP']
-            const network = 'Public Global Stellar Network ; September 2015'
-
-            const result = await provider.getTargetPools(baseAsset, assets, network)
-            expect(Array.isArray(result)).toBe(true)
-            expect(result.length).toBe(1) //Only the valid pair
+        it('gives an asset equal to the base no pool', async () => {
+            const result = await provider.getTargetPools('XLM', ['XLM', USD], network)
+            expect(result.get('XLM')).toEqual([])
+            expect(result.get(USD)).toHaveLength(1)
         })
 
-        it('skips an unparseable asset and keeps the pools that resolved', async () => {
-            const baseAsset = 'XLM'
-            const assets = ['INVALID', 'USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP']
-            const network = 'Public Global Stellar Network ; September 2015'
-
-            const result = await provider.getTargetPools(baseAsset, assets, network)
-            expect(result).toHaveLength(1)
+        it('gives an unparseable asset no pool and keeps the others', async () => {
+            const result = await provider.getTargetPools('XLM', ['INVALID', USD], network)
+            expect(result.get('INVALID')).toEqual([])
+            expect(result.get(USD)).toHaveLength(1)
             expect(console.warn).toHaveBeenCalled()
         })
 
-        it('skips an alias of the base asset without dropping the rest', async () => {
-            const baseAsset = 'XLM'
+        it('gives an alias of the base asset no pool without dropping the rest', async () => {
             //'native' parses to the same asset as 'XLM', so getLiquidityPoolId rejects the pair as unordered
-            const assets = ['native', 'USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP']
-            const network = 'Public Global Stellar Network ; September 2015'
-
-            const result = await provider.getTargetPools(baseAsset, assets, network)
-            expect(result).toHaveLength(1)
+            const result = await provider.getTargetPools('XLM', ['native', USD], network)
+            expect(result.get('native')).toEqual([])
+            expect(result.get(USD)).toHaveLength(1)
         })
 
-        it('should return empty array for no assets', async () => {
-            const baseAsset = 'XLM'
-            const assets = []
-            const network = 'Public Global Stellar Network ; September 2015'
-
-            const result = await provider.getTargetPools(baseAsset, assets, network)
-            expect(result).toEqual([])
+        it('returns an empty map for no assets', async () => {
+            expect(await provider.getTargetPools('XLM', [], network)).toEqual(new Map())
         })
     })
 

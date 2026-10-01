@@ -29,6 +29,17 @@ function getDexVolumes(cache, baseAsset, assets, network, from, period, limit) {
             tradesAggregator.processPeriodTrades(cache.getTradesForPeriod(periodFrom, periodTo))
             //aggregate volumes
             const volumes = tradesAggregator.volumes
+            //an asset counts its trades only if discovery tried its pools for this period: a pool set that never
+            //looked for them (a newly added asset, a failed provider) cannot say the asset has no pools
+            const untried = []
+            for (let j = 0; j < assets.length; j++) {
+                if (cache.isPairValidForPeriod(periodFrom, periodTo, baseAsset, assets[j]))
+                    continue
+                volumes[j] = undefined
+                untried.push(assets[j])
+            }
+            if (untried.length > 0)
+                console.debug({msg: 'DEX trades not counted for assets whose pools were not tried', from: periodFrom, baseAsset, assets: untried})
             //add to results
             results.push(volumes)
         } else {

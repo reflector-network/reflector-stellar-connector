@@ -1,8 +1,8 @@
 const RpcConnector = require('./rpc-connector')
 const {getDexVolumes} = require('./dex')
-const {getPoolVolumes, getPoolContracts, configure: configurePools} = require('./pools')
+const {getPoolVolumes, getPoolContracts, resolvePoolSources, configure: configurePools} = require('./pools')
 const {resolvePoolGuards} = require('./pools/pool-guards')
-const {getVWAP, scaleValue, TARGET_DECIMALS} = require('./utils')
+const {getVWAP, scaleValue, TARGET_DECIMALS, poolPairKey} = require('./utils')
 const TxCache = require('./cache')
 
 /**
@@ -10,26 +10,32 @@ const TxCache = require('./cache')
  */
 
 /**
- * Discovers all pools for the given assets
+ * Discovers all pools for the given assets, and the (base, asset) pairs whose pools discovery tried
  * @param {string} baseAsset - base asset
  * @param {string[]} assets - assets
  * @param {string} network - network
  * @param {string[]} crossAssets - cross assets
- * @returns {Promise<Map<string, any>>}
+ * @param {Object.<string, object>|string[]} [sources] - the data source's providers block
+ * @returns {Promise<{contracts: Map<string, any>, validPairs: Set<string>}>}
  */
-async function discoverPools(baseAsset, assets, network, crossAssets) {
+async function discoverPools(baseAsset, assets, network, crossAssets, sources) {
+    const enabledProviders = resolvePoolSources(sources)
     const filteredCrossAssets = crossAssets.filter(asset => asset !== baseAsset)
-    //load base and cross-price pool contracts in parallel
-    const [basePoolContracts, ...crossPoolContracts] = await Promise.all([
-        getPoolContracts(baseAsset, assets, network),
-        ...filteredCrossAssets.map(crossPriceAsset => getPoolContracts(crossPriceAsset, [baseAsset, ...assets], network))
+    const bases = [baseAsset, ...filteredCrossAssets]
+    //load base and cross-price pool contracts in parallel; the cross path prices the base asset too
+    const discoveries = await Promise.all([
+        getPoolContracts(baseAsset, assets, network, enabledProviders),
+        ...filteredCrossAssets.map(crossPriceAsset => getPoolContracts(crossPriceAsset, [baseAsset, ...assets], network, enabledProviders))
     ])
-    const allPoolContracts = new Map(basePoolContracts)
-    for (const crossPools of crossPoolContracts) {
-        for (const [k, v] of crossPools)
-            allPoolContracts.set(k, v)
-    }
-    return allPoolContracts
+    const contracts = new Map()
+    const validPairs = new Set()
+    discoveries.forEach((discovery, i) => {
+        for (const [k, v] of discovery.contracts)
+            contracts.set(k, v)
+        for (const asset of discovery.validAssets)
+            validPairs.add(poolPairKey(bases[i], asset))
+    })
+    return {contracts, validPairs}
 }
 
 /**
@@ -172,7 +178,7 @@ class StellarProvider {
      * @param {number} options.count - number of periods
      * @param {string} [options.simSource] - account ID for simulateTransaction
      * @param {string[]} [options.crossAssets] - cross-price assets
-     * @param {{poolGuards: {minBaseVolume: number}}} [options.options] - caller options; only `poolGuards` is read by this connector
+     * @param {{poolGuards: {minBaseVolume: number}, sources: Object.<string, object>}} [options.options] - caller options; this connector reads `poolGuards` and `sources` (the data source's providers block)
      * @return {Array<Array<Array<{volume: BigInt, quoteVolume: BigInt, ts: number}>>>}
      */
     async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets, options}) {
@@ -185,14 +191,14 @@ class StellarProvider {
         }
         //the pool liquidity floor; overriding it on one node only removes that node from the cluster majority
         const guards = resolvePoolGuards(options?.poolGuards)
-        //load pool contracts for the specified assets
-        const allPoolContracts = await discoverPools(baseAsset, assets, this.network, crossAssets)
+        //load pool contracts for the specified assets, from the providers the data source enables
+        const {contracts, validPairs} = await discoverPools(baseAsset, assets, this.network, crossAssets, options?.sources)
         //update cache with tokens metadata (cross assets included - their decimals scale cross-denominated pools)
         await this.cache.updateTokenMeta([baseAsset, ...assets, ...crossAssets], simSource)
         //a tick still taking the snapshot for the period asked for has not staged it yet
         await this.cache.whenIdle()
         //update cache with recent transactions and pools data (merged contracts)
-        await this.cache.updateCache(period, count, allPoolContracts)
+        await this.cache.updateCache(period, count, contracts, validPairs, baseAsset)
         //load all trade and pool volumes data for base and cross assets
         const volumes = getVolumesData(this.cache, baseAsset, assets, this.network, from, period, count, crossAssets, guards)
         //init result array of [period][asset] = [{volume, quoteVolume, ts}]

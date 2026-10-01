@@ -271,8 +271,19 @@ async function invokeRpcMethod(rpcs, method, params = undefined, options = undef
     }
 }
 
+/**
+ * Key of a (base, asset) pair in the set of pairs whose pools discovery tried
+ * @param {string} baseAsset - base asset of the pair; the cross asset on the cross path
+ * @param {string} asset - tracked asset
+ * @return {string}
+ */
+function poolPairKey(baseAsset, asset) {
+    return `${baseAsset}|${asset}`
+}
+
 module.exports = {
     invokeRpcMethod,
+    poolPairKey,
     rpcHost,
     getVWAP,
     normalizeTimestamp,

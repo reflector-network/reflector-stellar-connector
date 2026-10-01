@@ -147,7 +147,7 @@ describe('TxCache', () => {
         await cache.updateCache(60, 1, poolContracts)
         expect(rpc.generateLedgerRanges).toHaveBeenCalled()
         expect(rpc.fetchTransactions).toHaveBeenCalled()
-        expect(cache.poolContracts).toBe(poolContracts)
+        expect(cache.poolContracts).toEqual(poolContracts)
         expect(cache.__processPoolData).toHaveBeenCalled()
         expect(cache.__evictExpired).toHaveBeenCalled()
     })
@@ -342,23 +342,27 @@ describe('TxCache pool snapshots', () => {
         const instances = new Map([['pool1', {xdr: 'x', lastModifiedLedgerSeq: 7}]])
         takePoolSnapshot.mockResolvedValueOnce({servedLedger: 101, instances})
         const c = stoppedCache()
-        c.poolContracts = new Map([['pool1', createMockPoolProvider()]])
+        const poolContracts = new Map([['pool1', createMockPoolProvider()]])
+        c.poolContracts = poolContracts
+        c.validPairs = new Set(['B|A'])
         await c.__worker(T * 1000)
         expect(takePoolSnapshot).toHaveBeenCalledWith(expect.objectContaining({contracts: ['pool1'], boundary: T, deadline: T * 1000 + 10000}))
-        expect([...c.pendingPoolData.values()]).toEqual([{slot: T - 60, boundary: T, servedLedger: 101, poolData: instances}])
+        expect([...c.pendingPoolData.values()]).toEqual([{slot: T - 60, boundary: T, servedLedger: 101, poolData: instances, poolContracts, validPairs: new Set(['B|A'])}])
     })
 
     test('staged snapshots older than the cache keeps are dropped at staging', async () => {
         const instances = new Map([['pool1', {xdr: 'x', lastModifiedLedgerSeq: 7}]])
         takePoolSnapshot.mockResolvedValueOnce({servedLedger: 101, instances})
         const c = stoppedCache()
-        c.poolContracts = new Map([['pool1', createMockPoolProvider()]])
+        const poolContracts = new Map([['pool1', createMockPoolProvider()]])
+        c.poolContracts = poolContracts
         //older than the cache keeps once the new slot (T - 60) lands, so it would only ever be evicted unapplied
         const staleSlot = T - 60 - c.size * c.period - 60
         c.pendingPoolData.set(staleSlot, {slot: staleSlot, boundary: staleSlot + 60, servedLedger: 1, poolData: new Map()})
         await c.__worker(T * 1000)
         expect(c.pendingPoolData.has(staleSlot)).toBe(false)
-        expect(c.pendingPoolData.get(T - 60)).toEqual({slot: T - 60, boundary: T, servedLedger: 101, poolData: instances})
+        expect(c.pendingPoolData.get(T - 60))
+            .toEqual({slot: T - 60, boundary: T, servedLedger: 101, poolData: instances, poolContracts, validPairs: null})
     })
 
     test('the worker stages nothing when the snapshot failed', async () => {
@@ -381,15 +385,16 @@ describe('TxCache pool snapshots', () => {
     test('each staged snapshot fills its own slot, priced at its boundary, and no other slot', () => {
         const c = stoppedCache()
         const provider = createMockPoolProvider()
-        c.poolContracts = new Map([['pool1', provider]])
+        const poolContracts = new Map([['pool1', provider]])
         c.timestampData.set(T - 180, slot())
-        c.pendingPoolData.set(T - 120, {slot: T - 120, boundary: T - 60, servedLedger: 95, poolData: new Map([['pool1', {xdr: 'x1', lastModifiedLedgerSeq: 3}]])})
-        c.pendingPoolData.set(T - 60, {slot: T - 60, boundary: T, servedLedger: 107, poolData: new Map([['pool1', {xdr: 'x2', lastModifiedLedgerSeq: 3}]])})
+        c.pendingPoolData.set(T - 120, {slot: T - 120, boundary: T - 60, servedLedger: 95, poolData: new Map([['pool1', {xdr: 'x1', lastModifiedLedgerSeq: 3}]]), poolContracts, validPairs: new Set(['B|A'])})
+        c.pendingPoolData.set(T - 60, {slot: T - 60, boundary: T, servedLedger: 107, poolData: new Map([['pool1', {xdr: 'x2', lastModifiedLedgerSeq: 3}]]), poolContracts, validPairs: new Set(['B|A'])})
         c.__processPoolData()
         //no backfill: an earlier period never receives a later reading
         expect(c.timestampData.get(T - 180).poolData).toBeNull()
         expect(c.timestampData.get(T - 120).poolData.get('pool1')).toEqual({reserves: [100n, 200n], tokens: ['A', 'B']})
         expect(c.timestampData.get(T - 60).poolData.get('pool1')).toEqual({reserves: [100n, 200n], tokens: ['A', 'B']})
+        expect(c.timestampData.get(T - 60).validPairs).toEqual(new Set(['B|A']))
         expect(provider.processPoolInstance).toHaveBeenNthCalledWith(1, 'x1', 'pool1', 'testnet', c.tokensMeta, 3, T - 60)
         expect(provider.processPoolInstance).toHaveBeenNthCalledWith(2, 'x2', 'pool1', 'testnet', c.tokensMeta, 3, T)
         expect(c.pendingPoolData.size).toBe(0)
@@ -397,20 +402,26 @@ describe('TxCache pool snapshots', () => {
 
     test('a snapshot with no pools still gives its period a snapshot', () => {
         const c = stoppedCache()
-        c.poolContracts = new Map()
-        c.pendingPoolData.set(T - 60, {slot: T - 60, boundary: T, servedLedger: null, poolData: new Map()})
+        c.pendingPoolData.set(T - 60,
+            {slot: T - 60, boundary: T, servedLedger: null, poolData: new Map(), poolContracts: new Map(), validPairs: new Set()})
         c.__processPoolData()
         expect(c.timestampData.get(T - 60).poolData).toEqual(new Map())
         expect(c.hasPoolDataForPeriod(T - 60, T)).toBe(true)
     })
 
-    //Review Focus
-    test('a pool that left the tracked set before the snapshot was applied is skipped', () => {
-        const c = stoppedCache()
-        c.poolContracts = new Map()
-        c.pendingPoolData.set(T - 60, {slot: T - 60, boundary: T, servedLedger: 107, poolData: new Map([['gone', {xdr: 'x', lastModifiedLedgerSeq: 3}]])})
-        c.__processPoolData()
-        expect(c.timestampData.get(T - 60).poolData.size).toBe(0)
+    test('a snapshot is decoded with the pool set it was read with, not the one the next call discovered', async () => {
+        //the next discovery can lose a provider (it failed): its pools must still land beside the valid pairs
+        //discovered with them, or the pair counts DEX trades with the pool missing
+        const rpc = createMockRpcConnector()
+        rpc.generateLedgerRanges.mockResolvedValue([])
+        const c = stoppedCache(rpc)
+        const provider = createMockPoolProvider()
+        await c.updateCache(60, 1, new Map([['pool1', provider]]), new Set(['B|A']))
+        takePoolSnapshot.mockResolvedValueOnce({servedLedger: 101, instances: new Map([['pool1', {xdr: 'x', lastModifiedLedgerSeq: 3}]])})
+        await c.__worker(T * 1000)
+        await c.updateCache(60, 1, new Map(), new Set())
+        expect(c.timestampData.get(T - 60).poolData.get('pool1')).toEqual({reserves: [100n, 200n], tokens: ['A', 'B']})
+        expect(c.isPairValidForPeriod(T - 60, T, 'B', 'A')).toBe(true)
     })
 
     test('a snapshot for a period older than the cache keeps does not survive the update', async () => {
@@ -435,7 +446,7 @@ describe('TxCache pool snapshots', () => {
         const updating = c.updateCache(60, 1, poolContracts)
         //let updateCache reach the held-open backfill call
         await new Promise(resolve => setImmediate(resolve))
-        expect(c.poolContracts).toBe(poolContracts)
+        expect(c.poolContracts).toEqual(poolContracts)
         release([])
         await updating
     })
@@ -451,5 +462,78 @@ describe('TxCache pool snapshots', () => {
         expect(await Promise.race([idle, Promise.resolve(pending)])).toBe(pending)
         release()
         await expect(idle).resolves.toBeUndefined()
+    })
+
+    test('updateCache stores the valid pairs with the pool set before the transaction backfill', async () => {
+        const rpc = createMockRpcConnector()
+        let release = null
+        rpc.generateLedgerRanges.mockReturnValue(new Promise(resolve => {
+            release = () => resolve([])
+        }))
+        const c = stoppedCache(rpc)
+        const validPairs = new Set(['B|A'])
+        const update = c.updateCache(60, 1, new Map(), validPairs)
+        await new Promise(resolve => setImmediate(resolve))
+        expect(c.validPairs).toEqual(validPairs)
+        release()
+        await update
+    })
+
+    test('discoveries for different base assets are kept side by side, and each call replaces only its own', async () => {
+        //one connector instance serves every base asset of a source: whichever call ran last must not decide what
+        //the next tick reads, or two nodes with the same config mark different pairs valid
+        const rpc = createMockRpcConnector()
+        rpc.generateLedgerRanges.mockResolvedValue([])
+        const c = stoppedCache(rpc)
+        await c.updateCache(60, 1, new Map([['pool-usdc', createMockPoolProvider()]]), new Set(['USDC|A']), 'USDC')
+        await c.updateCache(60, 1, new Map([['pool-xlm', createMockPoolProvider()]]), new Set(['XLM|B']), 'XLM')
+        expect([...c.poolContracts.keys()].sort()).toEqual(['pool-usdc', 'pool-xlm'])
+        expect([...c.validPairs].sort()).toEqual(['USDC|A', 'XLM|B'])
+        await c.updateCache(60, 1, new Map(), new Set(['USDC|C']), 'USDC')
+        expect([...c.poolContracts.keys()]).toEqual(['pool-xlm'])
+        expect([...c.validPairs].sort()).toEqual(['USDC|C', 'XLM|B'])
+    })
+
+    test('isPairValidForPeriod needs every slot of the range to have tried the pair', () => {
+        const c = stoppedCache()
+        c.timestampData.set(T - 120, {...slot(), validPairs: new Set(['B|A'])})
+        c.timestampData.set(T - 60, {...slot(), validPairs: new Set(['B|A', 'B|C'])})
+        c.timestampData.set(T, slot())
+        expect(c.isPairValidForPeriod(T - 60, T, 'B', 'C')).toBe(true)
+        expect(c.isPairValidForPeriod(T - 120, T, 'B', 'A')).toBe(true)
+        expect(c.isPairValidForPeriod(T - 120, T, 'B', 'C')).toBe(false)
+        expect(c.isPairValidForPeriod(T, T + 60, 'B', 'A')).toBe(false) //no snapshot applied yet
+        expect(c.isPairValidForPeriod(T + 60, T + 120, 'B', 'A')).toBe(false) //no slot at all
+    })
+
+    test('a newly added asset counts as untried for the period read with the old pool set, and tried after', async () => {
+        const rpc = createMockRpcConnector()
+        rpc.generateLedgerRanges.mockResolvedValue([])
+        const c = stoppedCache(rpc)
+        await c.updateCache(60, 1, new Map(), new Set(['BASE|OLD']))
+        takePoolSnapshot.mockResolvedValueOnce({servedLedger: 101, instances: new Map()})
+        await c.__worker(T * 1000)
+        clearTimeout(c.__workerTimeout) //the worker scheduled its next tick; afterEach clears only the last one
+        //the asset is added: the next getPriceData discovers it
+        await c.updateCache(60, 1, new Map(), new Set(['BASE|OLD', 'BASE|NEW']))
+        takePoolSnapshot.mockResolvedValueOnce({servedLedger: 113, instances: new Map()})
+        await c.__worker((T + 60) * 1000)
+        await c.updateCache(60, 1, new Map(), new Set(['BASE|OLD', 'BASE|NEW']))
+        expect(c.isPairValidForPeriod(T - 60, T, 'BASE', 'OLD')).toBe(true)
+        expect(c.isPairValidForPeriod(T - 60, T, 'BASE', 'NEW')).toBe(false)
+        expect(c.isPairValidForPeriod(T, T + 60, 'BASE', 'NEW')).toBe(true)
+    })
+
+    //Review Focus
+    test('an updateCache call without valid pairs leaves every pair untried', async () => {
+        const rpc = createMockRpcConnector()
+        rpc.generateLedgerRanges.mockResolvedValue([])
+        const c = stoppedCache(rpc)
+        await c.updateCache(60, 1, new Map())
+        takePoolSnapshot.mockResolvedValueOnce({servedLedger: 101, instances: new Map()})
+        await c.__worker(T * 1000)
+        await c.updateCache(60, 1, new Map())
+        expect(c.hasPoolDataForPeriod(T - 60, T)).toBe(true)
+        expect(c.isPairValidForPeriod(T - 60, T, 'BASE', 'OLD')).toBe(false)
     })
 })

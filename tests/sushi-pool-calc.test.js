@@ -1,5 +1,5 @@
 /*eslint-disable no-undef */
-const {xdr, scValToNative} = require('@stellar/stellar-sdk')
+const {xdr, scValToNative, Address} = require('@stellar/stellar-sdk')
 const {extractSushiPoolData, buildGetPoolLedgerKey, SUSHI_FACTORY} = require('../src/pools/sushi/sushi-pool-helper')
 const {buildSushiPoolInstance, FIXTURE_TOKEN0, FIXTURE_TOKEN1} = require('./helpers/sushi-fixture')
 
@@ -47,6 +47,11 @@ describe('buildGetPoolLedgerKey', () => {
         const data = key.value
         expect(data.durability.name).toBe('persistent')
         expect(scValToNative(data.key)).toEqual(['GetPool', FIXTURE_TOKEN0, FIXTURE_TOKEN1, 3000])
+    })
+
+    it('builds the key under the factory it is given', () => {
+        const key = xdr.LedgerKey.fromXdr(buildGetPoolLedgerKey(FIXTURE_TOKEN0, FIXTURE_TOKEN1, 3000, FIXTURE_TOKEN0), 'base64')
+        expect(Address.fromScAddress(key.value.contract).toString()).toBe(FIXTURE_TOKEN0)
     })
 
     it('targets the SushiSwap factory contract', () => {

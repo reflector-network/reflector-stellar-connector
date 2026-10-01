@@ -47,26 +47,28 @@ function encodeLiquidityPoolKey(assets) {
 
 class StellarLiquidityPoolProvider extends PoolProviderBase {
     /**
-     * Returns a map of pools for the given base asset and assets.
+     * Classic liquidity pools pairing the base asset with each tracked asset; computed from the pair, so it cannot fail
      * @param {string} baseAsset - oracle base token
-     * @param {string[]} assets - oracle base token
+     * @param {string[]} assets - tracked assets
      * @param {string} network - network passphrase
-     * @return {string[]}
+     * @return {Promise<Map<string, string[]>>} pool ids per asset
      */
     async getTargetPools(baseAsset, assets, network) {
-        const liquidityPools = []
+        const result = new Map()
         for (const asset of assets) {
+            const pools = []
             try {
                 const poolKey = encodeLiquidityPoolKey([baseAsset, asset])
                 if (poolKey) {
-                    liquidityPools.push(poolKey)
+                    pools.push(poolKey)
                 }
             } catch (err) {
                 //one unusable pair must not remove every classic pool for this base asset
                 console.warn({msg: 'Skipping liquidity pool pair', baseAsset, asset, network, err: err.message})
             }
+            result.set(asset, pools)
         }
-        return liquidityPools
+        return result
     }
 
     /**

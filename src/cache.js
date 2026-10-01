@@ -1,6 +1,6 @@
 const {StrKey} = require('@stellar/stellar-sdk')
 const {xdrParseResult} = require('./dex/meta-processor')
-const {normalizeTimestamp} = require('./utils')
+const {normalizeTimestamp, encodeAssetContractId, DEFAULT_DECIMALS} = require('./utils')
 
 /**
  * @typedef {import('./rpc-connector')} RpcConnector
@@ -220,6 +220,18 @@ class TxCache {
      * @return {Promise<void>}
      */
     async updateTokenMeta(assets, accountId = "GDLMOS3LF2CRRFCWDJ6TX3YIEYBBTZGAF3BSSEXOXFZWYHSCOHT6DRFX") {
+        //a classic asset is always wrapped with 7 decimals, so its SAC metadata is known without an RPC round trip
+        for (const asset of assets) {
+            if (!asset || StrKey.isValidContract(asset))
+                continue
+            try {
+                const contractId = encodeAssetContractId(asset, this.network)
+                if (!this.tokensMeta.has(contractId))
+                    this.tokensMeta.set(contractId, {decimals: DEFAULT_DECIMALS})
+            } catch (err) {
+                console.warn({msg: 'Unable to derive the contract id of a classic asset', asset, err: err.message})
+            }
+        }
         if (!accountId)
             return
         const now = Date.now()
@@ -340,7 +352,7 @@ class TxCache {
             const poolLedger = instanceData.lastModifiedLedgerSeq
             //decode pool instance data
             const {reserves, tokens} =
-                provider.processPoolInstance(instanceData.xdr, contractId, this.network, this.tokensMeta, poolLedger) || {}
+                provider.processPoolInstance(instanceData.xdr, contractId, this.network, this.tokensMeta, poolLedger, timestamp) || {}
             if (!reserves || !tokens)
                 continue //invalid or unsupported pool - skip
             //attach pools data to target timestamps

@@ -1,3 +1,4 @@
+const {StrKey} = require('@stellar/stellar-sdk')
 const {DEFAULT_DECIMALS, adjustPrecision} = require('../../utils')
 const {extractInstanceStorage, getContractInstanceValues} = require('../utils')
 
@@ -81,14 +82,17 @@ function get_y(in_idx, out_idx, x, reserves, amp) {
  * @param {bigint} initialATime - Timestamp when the initial amplification coefficient was set
  * @param {bigint} futureA - Future amplification coefficient
  * @param {bigint} futureATime - Timestamp when the future amplification coefficient will be set
+ * @param {number} periodTimestamp - Period timestamp in seconds; every node derives the same value, unlike the wall clock
  * @return {bigint} The current amplification coefficient
  * @private
  */
-function a(initialA, initialATime, futureA, futureATime) {
+function a(initialA, initialATime, futureA, futureATime, periodTimestamp) {
+    if (!Number.isFinite(periodTimestamp) || periodTimestamp <= 0)
+        throw new Error('Period timestamp is required to compute the amplification coefficient')
     //Handle ramping A up or down
     const t1 = futureATime
     const a1 = futureA
-    const now = BigInt(Math.floor(Date.now() / 1000) + 5) //adding 5 seconds to account for the possible future change
+    const now = BigInt(Math.floor(periodTimestamp))
     if (now >= t1) //when t1 == 0 or block.timestamp >= t1
         return a1
     const a0 = initialA
@@ -145,15 +149,16 @@ function compute_d(reserves, amp) {
  * to the marginal price regardless of pool depth.
  * @param {BigInt[]} reserves - Array of reserves, first element is base asset reserve, second is quote asset reserve
  * @param {Object} stableData - Stable pool data containing initial and future amplification coefficients and fee
+ * @param {number} periodTimestamp - Period timestamp in seconds, used for the amplification ramp
  * @returns {BigInt} - The calculated price in the quote asset
  */
-function calculatePrice(reserves, stableData) {
+function calculatePrice(reserves, stableData, periodTimestamp) {
     const sellReserve = reserves[0]
     const buyReserve = reserves[1]
     if (sellReserve === 0n || buyReserve === 0n) {
         throw new Error('Invalid reserves')
     }
-    const amp = a(stableData.initialA, stableData.initialATime, stableData.futureA, stableData.futureATime)
+    const amp = a(stableData.initialA, stableData.initialATime, stableData.futureA, stableData.futureATime, periodTimestamp)
     if (amp === 0n) {
         throw new Error('Invalid amplification coefficient')
     }
@@ -168,6 +173,43 @@ function calculatePrice(reserves, stableData) {
     if (aDy <= 0n || bDy <= 0n)
         return 0n
     return (aDy * tenToFourteen / probe + probe * tenToFourteen / bDy) / 2n
+}
+
+/**
+ * Resolve per-token decimals, preferring what the token contracts themselves reported over the pool's own claim
+ * @param {string[]} tokens - pool token contract ids
+ * @param {any} declared - `Decimals` value declared in pool storage, if any
+ * @param {Map<string, {decimals: number}>} tokenMeta - metadata loaded from the token contracts
+ * @returns {number[]|null}
+ */
+function resolveDigits(tokens, declared, tokenMeta) {
+    const declaredDigits = Array.isArray(declared) && declared.length === 2 ? declared.map(Number) : null
+    const digits = []
+    for (let i = 0; i < 2; i++) {
+        const meta = tokenMeta.get(tokens[i])
+        const own = declaredDigits ? declaredDigits[i] : undefined
+        if (meta) {
+            //an entry without decimals is the failed-decimals() marker - the pool cannot be scaled safely
+            if (!Number.isInteger(meta.decimals))
+                return null
+            if (own !== undefined && own !== meta.decimals) {
+                console.warn({msg: 'Pool declares decimals the token contract disagrees with', token: tokens[i], declared: own, actual: meta.decimals})
+                return null
+            }
+            digits.push(meta.decimals)
+            continue
+        }
+        if (own === undefined) {
+            digits.push(DEFAULT_DECIMALS)
+            continue
+        }
+        if (!Number.isInteger(own) || own < 0 || own > 18) {
+            console.warn({msg: 'Pool declares an unusable decimals value', token: tokens[i], declared: own})
+            return null
+        }
+        digits.push(own)
+    }
+    return digits
 }
 
 /**
@@ -192,20 +234,14 @@ function extractAquaPoolData(contractData, tokenMeta) {
     if (
         !tokens //no tokens found
         || new Set(tokens).size !== 2 //not exactly 2 unique tokens
+        || !tokens.every(t => typeof t === 'string' && StrKey.isValidContract(t)) //self-declared tokens must at least be contract ids
     ) {
         return null //unable to extract reserves
     }
 
-    let digits = storage.Decimals
-    if (digits === undefined) {
-        digits = tokens.map(t => {
-            const meta = tokenMeta.get(t)
-            return meta ? meta.decimals : DEFAULT_DECIMALS
-        })
-        if (digits.length !== 2 || digits.some(d => isNaN(d))) {
-            return null //unable to determine decimals
-        }
-    }
+    const digits = resolveDigits(tokens, storage.Decimals, tokenMeta)
+    if (!digits)
+        return null //decimals cannot be trusted - pricing this pool would mis-scale it
     reserves[0] = adjustPrecision(reserves[0], digits[0])
     reserves[1] = adjustPrecision(reserves[1], digits[1])
     let stableData = undefined

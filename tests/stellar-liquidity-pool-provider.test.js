@@ -26,8 +26,8 @@ describe('StellarLiquidityPoolProvider', () => {
             expect(Array.isArray(result)).toBe(true)
             expect(result.length).toBe(2)
             result.forEach(key => {
-                expect(typeof key).toBe('string')
-                expect(key).toMatch(/^[A-Za-z0-9+/=]+$/)
+                //32-byte pool id, hex encoded from the hash view itself
+                expect(key).toMatch(/^[0-9a-f]{64}$/)
             })
         })
 
@@ -41,12 +41,24 @@ describe('StellarLiquidityPoolProvider', () => {
             expect(result.length).toBe(1) //Only the valid pair
         })
 
-        it('should handle errors gracefully', async () => {
-            const baseAsset = 'INVALID'
-            const assets = ['XLM']
+        it('skips an unparseable asset and keeps the pools that resolved', async () => {
+            const baseAsset = 'XLM'
+            const assets = ['INVALID', 'USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP']
             const network = 'Public Global Stellar Network ; September 2015'
 
-            await expect(provider.getTargetPools(baseAsset, assets, network)).rejects.toThrow()
+            const result = await provider.getTargetPools(baseAsset, assets, network)
+            expect(result).toHaveLength(1)
+            expect(console.warn).toHaveBeenCalled()
+        })
+
+        it('skips an alias of the base asset without dropping the rest', async () => {
+            const baseAsset = 'XLM'
+            //'native' parses to the same asset as 'XLM', so getLiquidityPoolId rejects the pair as unordered
+            const assets = ['native', 'USD:GCP2QKBFLLEEWYVKAIXIJIJNCZ6XEBIE4PCDB6BF3GUB6FGE2RQ3HDVP']
+            const network = 'Public Global Stellar Network ; September 2015'
+
+            const result = await provider.getTargetPools(baseAsset, assets, network)
+            expect(result).toHaveLength(1)
         })
 
         it('should return empty array for no assets', async () => {

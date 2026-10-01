@@ -5,6 +5,7 @@ const {calculatePoolVolumes, calculateConcentratedPrice} = require('../src/pools
 const RpcConnector = require('../src/rpc-connector')
 const {TARGET_DECIMALS, adjustPrecision} = require('../src/utils')
 
+const nowSeconds = Math.floor(Date.now() / 1000)
 
 function spotPriceLinear([x, y], idxIn = 0, amp) {
     const delta = idxIn === 0 ? x - y : y - x
@@ -33,7 +34,7 @@ describe('calculatePrice with BigInt stableData', () => {
             futureATime: pastTimestamp, //1 hour ago — triggers early return of futureA
             fee: 30n
         }
-        const price = calculatePrice(reserves, stableData)
+        const price = calculatePrice(reserves, stableData, nowSeconds)
         expect(typeof price).toBe('bigint')
         expect(price).toBeGreaterThan(0n)
     })
@@ -47,7 +48,7 @@ describe('calculatePrice with BigInt stableData', () => {
             futureATime: now + 3600n, //ends 1 hour from now — forces interpolation
             fee: 30n
         }
-        const price = calculatePrice(reserves, stableData)
+        const price = calculatePrice(reserves, stableData, nowSeconds)
         expect(typeof price).toBe('bigint')
         expect(price).toBeGreaterThan(0n)
     })
@@ -61,7 +62,7 @@ describe('calculatePrice with BigInt stableData', () => {
             futureATime: now + 3600n,
             fee: 30n
         }
-        const price = calculatePrice(reserves, stableData)
+        const price = calculatePrice(reserves, stableData, nowSeconds)
         expect(typeof price).toBe('bigint')
         expect(price).toBeGreaterThan(0n)
     })
@@ -76,7 +77,7 @@ describe('calculatePrice with BigInt stableData', () => {
             fee: 1n
         }
         //this would throw "Cannot mix BigInt and other types" before the fix
-        expect(() => calculatePrice(reserves, stableData)).not.toThrow()
+        expect(() => calculatePrice(reserves, stableData, nowSeconds)).not.toThrow()
     })
 
     it('probes proportionally to pool depth, so the price does not depend on pool scale', () => {
@@ -90,8 +91,8 @@ describe('calculatePrice with BigInt stableData', () => {
         }
         const small = [2n * 10n ** 14n, 8n * 10n ** 14n] //2 / 8 tokens - shallow, so probe-size slippage would show up here
         const large = [2n * 10n ** 20n, 8n * 10n ** 20n] //2M / 8M tokens - same shape, deep
-        const priceSmall = calculatePrice(small, stableData)
-        const priceLarge = calculatePrice(large, stableData)
+        const priceSmall = calculatePrice(small, stableData, nowSeconds)
+        const priceLarge = calculatePrice(large, stableData, nowSeconds)
         //stableswap is scale-homogeneous, so both pools must price identically (0.1% tolerance for integer rounding)
         const diff = priceSmall > priceLarge ? priceSmall - priceLarge : priceLarge - priceSmall
         expect(diff).toBeLessThan(priceLarge / 1000n)
@@ -110,7 +111,7 @@ describe('calculatePrice with BigInt stableData', () => {
             futureATime: pastTimestamp,
             fee: 0n
         }
-        expect(calculatePrice([50n, 50n], stableData)).toBe(0n)
+        expect(calculatePrice([50n, 50n], stableData, nowSeconds)).toBe(0n)
     })
 
     it('should produce consistent prices for equal reserves regardless of A value', () => {
@@ -122,14 +123,14 @@ describe('calculatePrice with BigInt stableData', () => {
             futureA: 500n,
             futureATime: pastTimestamp,
             fee: 0n
-        })
+        }, nowSeconds)
         const priceB = calculatePrice(reserves, {
             initialA: 5000n,
             initialATime: pastTimestamp - 7200n,
             futureA: 5000n,
             futureATime: pastTimestamp,
             fee: 0n
-        })
+        }, nowSeconds)
         //both prices should be close to 10^14 (1:1 in 14-decimal representation)
         const target = 10n ** 14n
         const tolerance = target / 100n //1% tolerance
@@ -262,7 +263,7 @@ describe('Aqua Pool Provider', () => {
             }
             const one = adjustPrecision(1n, 0) //10^14, the "1.0" sentinel in 14-decimal scale
             const computedPrice = stableData
-                ? calculatePrice(reserves, stableData)
+                ? calculatePrice(reserves, stableData, nowSeconds)
                 : reserves[1] * one / reserves[0]
             //in any AMM the side with more reserves is the cheaper one,
             //so price(B per A) must be < 1 iff reserves[0] > reserves[1]

@@ -148,12 +148,14 @@ describe('AquaPoolProvider on-disk cache', () => {
             futureATime: pastTimestamp,
             fee: 0n
         }
+        const periodTimestamp = Math.floor(Date.now() / 1000)
 
         it('replaces stable pool reserves with min-corrected volumes', () => {
+            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
             const reserves = [3083627186900000000n, 4000679061030000000n]
             extractAquaPoolData.mockReturnValueOnce({reserves: [...reserves], tokens: ['TOKEN_C', 'TOKEN_D'], stableData})
-            const result = provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123)
-            expect(result.reserves).toEqual(calculatePoolVolumes(reserves, calculatePrice(reserves, stableData)))
+            const result = provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123, periodTimestamp)
+            expect(result.reserves).toEqual(calculatePoolVolumes(reserves, calculatePrice(reserves, stableData, periodTimestamp)))
             //token0 is the scarcer side - kept as-is, with its stable-price value in the token1 slot
             expect(result.reserves[0]).toBe(reserves[0])
             expect(result.reserves[1]).toBeGreaterThan(reserves[0])
@@ -162,18 +164,22 @@ describe('AquaPoolProvider on-disk cache', () => {
         })
 
         it('skips stable pools too shallow to price', () => {
+            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
             extractAquaPoolData.mockReturnValueOnce({reserves: [1n, 1n], tokens: ['TOKEN_C', 'TOKEN_D'], stableData})
-            expect(provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123)).toBeNull()
+            expect(provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123, periodTimestamp)).toBeNull()
             expect(console.error).not.toHaveBeenCalled() //a shallow pool is not an error condition
         })
     })
 
     describe('processPoolInstance for concentrated pools', () => {
+        const periodTimestamp = Math.floor(Date.now() / 1000)
+
         it('replaces concentrated pool reserves with min-corrected volumes', () => {
+            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
             const reserves = [3398582110570000000n, 3710021060590000000n]
             const concentratedData = {sqrtPriceX96: 79246271960821347022979480869n, digits: [7, 7]}
             extractAquaPoolData.mockReturnValueOnce({reserves: [...reserves], tokens: ['TOKEN_C', 'TOKEN_D'], concentratedData})
-            const result = provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123)
+            const result = provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123, periodTimestamp)
             expect(result.reserves).toEqual(calculatePoolVolumes(reserves, calculateConcentratedPrice(concentratedData)))
             //price > 1, so the token0 side is the scarcer one - kept as-is
             expect(result.reserves[0]).toBe(reserves[0])
@@ -181,9 +187,10 @@ describe('AquaPoolProvider on-disk cache', () => {
         })
 
         it('skips concentrated pools with uninitialized price', () => {
+            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
             const concentratedData = {sqrtPriceX96: 0n, digits: [7, 7]}
             extractAquaPoolData.mockReturnValueOnce({reserves: [1000000000000000000n, 1000000000000000000n], tokens: ['TOKEN_C', 'TOKEN_D'], concentratedData})
-            expect(provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123)).toBeNull()
+            expect(provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123, periodTimestamp)).toBeNull()
             expect(console.error).not.toHaveBeenCalled()
         })
     })

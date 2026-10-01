@@ -180,8 +180,8 @@ class StellarProvider {
         }
         //load pool contracts for the specified assets
         const allPoolContracts = await discoverPools(baseAsset, assets, this.network, crossAssets)
-        //update cache with tokens metadata
-        await this.cache.updateTokenMeta([baseAsset, ...assets], simSource)
+        //update cache with tokens metadata (cross assets included - their decimals scale cross-denominated pools)
+        await this.cache.updateTokenMeta([baseAsset, ...assets, ...crossAssets], simSource)
         //update cache with recent transactions and pools data (merged contracts)
         await this.cache.updateCache(period, count, allPoolContracts)
         //load all trade and pool volumes data for base and cross assets

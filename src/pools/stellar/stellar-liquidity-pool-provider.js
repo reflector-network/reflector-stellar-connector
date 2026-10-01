@@ -38,7 +38,11 @@ function encodeLiquidityPoolKey(assets) {
         'constant_product',
         new LiquidityPoolAsset(parseAssets[0], parseAssets[1], 30).getLiquidityPoolParameters()
     )
-    return Buffer.from(poolId.buffer).toString('hex')
+    //Buffer.from(view.buffer) ignores byteOffset/byteLength - copy the view itself
+    const poolIdBytes = Buffer.from(poolId)
+    if (poolIdBytes.length !== 32)
+        throw new Error(`Unexpected liquidity pool id length: ${poolIdBytes.length}`)
+    return poolIdBytes.toString('hex')
 }
 
 class StellarLiquidityPoolProvider extends PoolProviderBase {
@@ -50,19 +54,19 @@ class StellarLiquidityPoolProvider extends PoolProviderBase {
      * @return {string[]}
      */
     async getTargetPools(baseAsset, assets, network) {
-        try {
-            const liquidityPools = []
-            for (const asset of assets) {
+        const liquidityPools = []
+        for (const asset of assets) {
+            try {
                 const poolKey = encodeLiquidityPoolKey([baseAsset, asset])
                 if (poolKey) {
                     liquidityPools.push(poolKey)
                 }
+            } catch (err) {
+                //one unusable pair must not remove every classic pool for this base asset
+                console.warn({msg: 'Skipping liquidity pool pair', baseAsset, asset, network, err: err.message})
             }
-            return liquidityPools
-        } catch (err) {
-            console.error({msg: 'Error getting target pools', baseAsset, assets, network, err})
-            throw err
         }
+        return liquidityPools
     }
 
     /**

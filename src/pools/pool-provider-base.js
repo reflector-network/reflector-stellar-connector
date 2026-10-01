@@ -30,9 +30,10 @@ class PoolProviderBase {
      * @param {string} network - network passphrase
      * @param {Map<string, {decimals: number}>} tokenMeta - Metadata for tokens to aggregate pools data for
      * @param {number} lastModifiedLedger - pool's last-modified ledger seq (for logging)
+     * @param {number} periodTimestamp - period the snapshot is priced for, in seconds
      * @return {{reserves: BigInt[], tokens: string[]}|null} - pool reserves and tokens or null if the pool is invalid.
      */
-    processPoolInstance(poolInstance, contractId, network, tokenMeta, lastModifiedLedger) {
+    processPoolInstance(poolInstance, contractId, network, tokenMeta, lastModifiedLedger, periodTimestamp) {
         throw new Error("Abstract method processPoolInstance must be implemented in derived class")
     }
 }

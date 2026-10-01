@@ -1,13 +1,14 @@
 /*eslint-disable class-methods-use-this */
 const fs = require('fs')
 const path = require('path')
+const {Networks} = require('@stellar/stellar-sdk')
 const {encodeAssetContractId, normalizeTimestamp} = require('../../utils')
 const {calculateConcentratedPrice, calculatePoolVolumes} = require('../utils')
 const PoolProviderBase = require('../pool-provider-base')
 const PoolType = require('../pool-type')
+const {loadAquaPools} = require('./aqua-api')
 const {extractAquaPoolData, calculatePrice} = require('./aqua-pool-helper')
 
-const AQUA_API_HOST = 'amm-api.aqua.network'
 const AQUA_FAILURE_COOLDOWN_MS = 5 * 60 * 1000
 const AQUA_CACHE_FILENAME = 'aqua-pools.json'
 
@@ -22,6 +23,13 @@ class AquaPoolProvider extends PoolProviderBase {
      * @private
      */
     __cached = null
+
+    /**
+     * Token pair the API claimed for each pool address, checked against the pool's own storage before use
+     * @type {Map<string, string[]>}
+     * @private
+     */
+    __declaredTokens = new Map()
 
     /**
      * @type {string|null}
@@ -67,58 +75,12 @@ class AquaPoolProvider extends PoolProviderBase {
         }
     }
 
+    /**
+     * Load the pool list from the Aqua API with its request limits applied
+     * @returns {Promise<{address: string, assets: string[], type: string}[]>}
+     */
     async __loadPools() {
-        const data = []
-        let dataSourceUrl = `https://${AQUA_API_HOST}/pools/?size=500`
-        while (dataSourceUrl) {
-            const response = await fetch(dataSourceUrl)
-                .then(res => res.json())
-            //validate next URL host to avoid following untrusted redirects
-            if (response.next) {
-                let nextHost = null
-                try {
-                    nextHost = new URL(response.next).host
-                } catch (_) { /*invalid URL */ }
-                if (nextHost !== AQUA_API_HOST) {
-                    console.warn({msg: 'Aquarius API returned untrusted next URL, stopping pagination', next: response.next})
-                    dataSourceUrl = null
-                } else {
-                    dataSourceUrl = response.next
-                }
-            } else {
-                dataSourceUrl = null
-            }
-            const parsedData = response.items.map(pool => {
-                let type
-                switch (pool.pool_type) {
-                    case 'constant_product':
-                        type = 'constant_product'
-                        break
-                    case 'stable':
-                        type = 'stableswap'
-                        break
-                    case 'concentrated':
-                        type = 'concentrated'
-                        break
-                    default:
-                        console.log({msg: 'Aquarius pool type not supported', pool_type: pool.pool_type, poolId: pool.address})
-                }
-                if (pool.swap_killed
-                    || !type
-                    || pool.tokens_addresses.length !== 2
-                ) //skip pools that are killed, unsupported types or with more than 2 tokens
-                    return null
-
-                return ({
-                    address: pool.address,
-                    assets: pool.tokens_addresses,
-                    type
-                })
-            }).filter(value => !!value)
-            data.push(...parsedData)
-        }
-        console.debug({msg: 'Loaded Aqua pool list', count: data.length})
-        return data
+        return await loadAquaPools()
     }
 
     async __maybeRefreshPools() {
@@ -168,10 +130,17 @@ class AquaPoolProvider extends PoolProviderBase {
      */
     async getTargetPools(baseAsset, assets, network) {
         try {
+            //the Aqua API indexes pubnet only; matching its addresses on another network compares unrelated contract ids
+            if (network !== Networks.PUBLIC) {
+                console.debug({msg: 'Aqua pool provider serves pubnet only', network})
+                return []
+            }
             await this.__maybeRefreshPools()
             const data = this.__cached
             if (!data)
                 return []
+            //remember what the API claims each pool holds, so the on-chain instance can be checked against it
+            this.__declaredTokens = new Map(data.map(pool => [pool.address, [...pool.assets].sort()]))
             const baseToken = encodeAssetContractId(baseAsset, network)
             const tokens = assets.map(a => encodeAssetContractId(a, network))
             const getQuoteTokenFn = (pool) => {
@@ -211,9 +180,10 @@ class AquaPoolProvider extends PoolProviderBase {
      * @param {string} network - network passphrase
      * @param {Map<string, {decimals: number}>} tokenMeta - Metadata for tokens to aggregate pools data for
      * @param {number} lastModifiedLedger - pool's last-modified ledger seq
+     * @param {number} periodTimestamp - period the snapshot is priced for, in seconds
      * @return {{reserves: BigInt[], tokens: string[]}|null} - pool reserves and tokens or null if the pool is invalid
      */
-    processPoolInstance(poolInstance, contractId, network, tokenMeta, lastModifiedLedger) {
+    processPoolInstance(poolInstance, contractId, network, tokenMeta, lastModifiedLedger, periodTimestamp) {
         try {
             //extract pool data
             const poolData = extractAquaPoolData(poolInstance, tokenMeta)
@@ -223,12 +193,19 @@ class AquaPoolProvider extends PoolProviderBase {
                 console.debug({msg: 'Skipping invalid pool', poolId: contractId, lastModifiedLedger})
                 return null
             }
+            //the API named this pool's pair; the contract must agree before its reserves are priced
+            const declared = this.__declaredTokens.get(contractId)
+            const onChain = [...poolData.tokens].sort()
+            if (!declared || declared.length !== 2 || onChain[0] !== declared[0] || onChain[1] !== declared[1]) {
+                console.warn({msg: 'Pool tokens do not match the declared pair', poolId: contractId, declared, onChain})
+                return null
+            }
             const rawReserves = [poolData.reserves[0].toString(), poolData.reserves[1].toString()]
             const kind = poolData.stableData ? 'stableswap' : poolData.concentratedData ? 'concentrated' : 'constant_product'
             let price = null
             if (poolData.stableData || poolData.concentratedData) {
                 price = poolData.stableData
-                    ? calculatePrice(poolData.reserves, poolData.stableData)
+                    ? calculatePrice(poolData.reserves, poolData.stableData, periodTimestamp)
                     : calculateConcentratedPrice(poolData.concentratedData)
                 if (price <= 0n) { //pool too shallow or uninitialized - no signal
                     console.debug({msg: 'Skipping pool with no computable price', poolId: contractId, kind, rawReserves, lastModifiedLedger})

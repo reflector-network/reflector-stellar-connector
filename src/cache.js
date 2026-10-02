@@ -59,9 +59,13 @@ class TxCache {
         try {
             //an empty set would read as "this asset has no pools" and let the period's DEX trades count
             if (!this.poolContracts) {
-                console.warn({msg: 'Pool contracts not known yet - no pool snapshot for period', network: this.network, boundary})
+                //a data source no contract prices from never gets a pool set: say so once, not every period
+                const log = this.__noPoolsReported ? console.debug : console.warn
+                this.__noPoolsReported = true
+                log({msg: 'Pool contracts not known yet - no pool snapshot for period', network: this.network, boundary})
                 return
             }
+            this.__noPoolsReported = false
             //the pool set read and the pairs its discovery tried travel with the snapshot: decoding it with a later
             //discovery's set would drop the pools of a provider that failed since, beside pairs that still count
             const poolContracts = this.poolContracts

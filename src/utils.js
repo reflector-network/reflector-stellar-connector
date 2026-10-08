@@ -157,8 +157,8 @@ function rpcHost(url) {
 
 //The url that answered last, per configured url list. Without it every request walked the list in configured order, so a
 //first url that hangs cost its whole deadline on every request, and a pool snapshot that has to finish within seconds of
-//the boundary could not. The same helper lives in reflector-shared helpers/entries-helper.js, oracle-client
-//src/rpc-helper.js and reflector-node src/utils/rpc-helper.js. Each node already reads from its own configured urls,
+//the boundary could not. The same helper lives in reflector-shared helpers/rpc-helper.js and reflector-node
+//src/utils/rpc-helper.js. Each node already reads from its own configured urls,
 //and a snapshot is proven by ledger numbers and close times, so the preference changes which url answers, not what a
 //node reports
 const lastGoodUrls = new Map()

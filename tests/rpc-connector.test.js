@@ -13,61 +13,67 @@ console.warn = jest.fn()
 console.error = jest.fn()
 console.log = jest.fn()
 
-describe('RpcConnector.loadContractInstances', () => {
+describe('RpcConnector.loadPoolSnapshot', () => {
     let connector
+    const contracts = ['CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA', 'CCKCKCPHYVXQD4NECBFJTFSCU2AMSJGCNG4O6K4JVRE2BLPR7WNDBQIQ']
+    //the instance ledger keys of the two contracts above, in the same order
+    const keys = ['AAAABgAAAAEltPzYWa7C+mNIQ4xImzw8EMmLbSG+T9PLMMtolT75dwAAABQAAAAB', 'AAAABgAAAAGUJQnnxW8B8aQQSpmWQqaAySTCabjvK4msSaCt8f2aMAAAABQAAAAB']
 
     beforeEach(() => {
         connector = new RpcConnector(['http://rpc-url'], 'testnet')
         jest.clearAllMocks()
     })
 
-    it('should return a map of contract IDs to their ledger entries', async () => {
-        const contracts = ['CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA', 'CCKCKCPHYVXQD4NECBFJTFSCU2AMSJGCNG4O6K4JVRE2BLPR7WNDBQIQ']
-        const mockEntries = [
-            {key: 'AAAABgAAAAEltPzYWa7C+mNIQ4xImzw8EMmLbSG+T9PLMMtolT75dwAAABQAAAAB', xdr: 'xdr1', lastModifiedLedger: 1, liveUntilLedgerSeq: 10},
-            {key: 'AAAABgAAAAGUJQnnxW8B8aQQSpmWQqaAySTCabjvK4msSaCt8f2aMAAAABQAAAAB', xdr: 'xdr2', lastModifiedLedger: 2, liveUntilLedgerSeq: 20}
+    it('maps each entry to its pool and reports the ledger the read was served at', async () => {
+        const entries = [
+            {key: keys[0], xdr: 'xdr1', lastModifiedLedgerSeq: 12},
+            {key: keys[1], xdr: 'xdr2', lastModifiedLedgerSeq: 99}
         ]
-        invokeRpcMethod.mockResolvedValueOnce({entries: mockEntries})
-
-        const result = await connector.loadContractInstances(contracts)
-
-        expect(invokeRpcMethod).toHaveBeenCalledWith(
-            ['http://rpc-url'],
-            'getLedgerEntries',
-            {keys: ['AAAABgAAAAEltPzYWa7C+mNIQ4xImzw8EMmLbSG+T9PLMMtolT75dwAAABQAAAAB', 'AAAABgAAAAGUJQnnxW8B8aQQSpmWQqaAySTCabjvK4msSaCt8f2aMAAAABQAAAAB']}
-        )
-        expect(result).toBeInstanceOf(Map)
-        expect(result.size).toBe(2)
-        expect([...result.values()]).toEqual(mockEntries)
+        invokeRpcMethod.mockResolvedValueOnce({entries, latestLedger: 100})
+        const {instances, servedLedger} = await connector.loadPoolSnapshot(contracts)
+        expect(servedLedger).toBe(100)
+        expect(instances.get(contracts[0])).toBe(entries[0])
+        expect(instances.get(contracts[1])).toBe(entries[1])
     })
 
-    it('should retry up to 3 times on failure', async () => {
-        const contracts = ['CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA']
+    it('keeps a pool last modified long ago and one whose modification ledger is missing', async () => {
+        //the served ledger dates the read; an entry's own lastModifiedLedgerSeq plays no part
+        const entries = [
+            {key: keys[0], xdr: 'untouched-for-days', lastModifiedLedgerSeq: 3},
+            {key: keys[1], xdr: 'no-modification-ledger'}
+        ]
+        invokeRpcMethod.mockResolvedValueOnce({entries, latestLedger: 100})
+        const {instances} = await connector.loadPoolSnapshot(contracts)
+        expect([...instances.values()].map(e => e.xdr)).toEqual(['untouched-for-days', 'no-modification-ledger'])
+    })
+
+    it('discards a read whose chunks were served at different ledgers', async () => {
+        //201 classic pool ids make two chunks, and each chunk is its own request
+        const pools = Array.from({length: 201}, (_, i) => (i + 1).toString(16).padStart(64, '0'))
         invokeRpcMethod
-            .mockRejectedValueOnce(new Error('fail1'))
-            .mockRejectedValueOnce(new Error('fail2'))
-            .mockResolvedValueOnce({entries: [{key: 'mocked-xdr-key', xdr: 'xdr', lastModifiedLedger: 1, liveUntilLedgerSeq: 10}]})
-
-        const result = await connector.loadContractInstances(contracts)
-        expect(result.size).toBe(1)
-        expect(invokeRpcMethod).toHaveBeenCalledTimes(3)
+            .mockResolvedValueOnce({entries: [], latestLedger: 100})
+            .mockResolvedValueOnce({entries: [], latestLedger: 101})
+        expect(await connector.loadPoolSnapshot(pools)).toBeNull()
+        expect(invokeRpcMethod).toHaveBeenCalledTimes(2)
+        invokeRpcMethod
+            .mockResolvedValueOnce({entries: [], latestLedger: 101})
+            .mockResolvedValueOnce({entries: [], latestLedger: 101})
+        expect((await connector.loadPoolSnapshot(pools)).servedLedger).toBe(101)
     })
 
-    it('should throw error after 3 failed attempts', async () => {
-        const contracts = ['CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA']
-        invokeRpcMethod.mockRejectedValue(new Error('fail'))
-
-        await expect(connector.loadContractInstances(contracts)).rejects.toThrow('Failed to load contracts data from RPC')
-        expect(invokeRpcMethod).toHaveBeenCalledTimes(3)
-    })
-
-    it('should return empty map if no entries returned', async () => {
-        const contracts = ['CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA']
+    it('discards a read with no usable served ledger', async () => {
         invokeRpcMethod.mockResolvedValueOnce({entries: []})
-
-        const result = await connector.loadContractInstances(contracts)
-        expect(result.size).toBe(0)
+        expect(await connector.loadPoolSnapshot(contracts)).toBeNull()
     })
+
+    it('makes one request and lets a failure through', async () => {
+        invokeRpcMethod.mockRejectedValueOnce(new Error('rpc down'))
+        await expect(connector.loadPoolSnapshot(contracts)).rejects.toThrow('rpc down')
+        expect(invokeRpcMethod).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe('RpcConnector', () => {
 
     describe('RpcConnector.generateLedgerRanges', () => {
         let connector

@@ -1,7 +1,8 @@
 const RpcConnector = require('./rpc-connector')
 const {getDexVolumes} = require('./dex')
-const {getPoolVolumes, getPoolContracts, configure: configurePools} = require('./pools')
-const {getVWAP, scaleValue, TARGET_DECIMALS} = require('./utils')
+const {getPoolVolumes, getPoolContracts, resolvePoolSources, configure: configurePools} = require('./pools')
+const {resolvePoolGuards} = require('./pools/pool-guards')
+const {getVWAP, scaleValue, TARGET_DECIMALS, poolPairKey} = require('./utils')
 const TxCache = require('./cache')
 
 /**
@@ -9,26 +10,32 @@ const TxCache = require('./cache')
  */
 
 /**
- * Discovers all pools for the given assets
+ * Discovers all pools for the given assets, and the (base, asset) pairs whose pools discovery tried
  * @param {string} baseAsset - base asset
  * @param {string[]} assets - assets
  * @param {string} network - network
  * @param {string[]} crossAssets - cross assets
- * @returns {Promise<Map<string, any>>}
+ * @param {Object.<string, object>|string[]} [sources] - the data source's providers block
+ * @returns {Promise<{contracts: Map<string, any>, validPairs: Set<string>}>}
  */
-async function discoverPools(baseAsset, assets, network, crossAssets) {
+async function discoverPools(baseAsset, assets, network, crossAssets, sources) {
+    const enabledProviders = resolvePoolSources(sources)
     const filteredCrossAssets = crossAssets.filter(asset => asset !== baseAsset)
-    //load base and cross-price pool contracts in parallel
-    const [basePoolContracts, ...crossPoolContracts] = await Promise.all([
-        getPoolContracts(baseAsset, assets, network),
-        ...filteredCrossAssets.map(crossPriceAsset => getPoolContracts(crossPriceAsset, [baseAsset, ...assets], network))
+    const bases = [baseAsset, ...filteredCrossAssets]
+    //load base and cross-price pool contracts in parallel; the cross path prices the base asset too
+    const discoveries = await Promise.all([
+        getPoolContracts(baseAsset, assets, network, enabledProviders),
+        ...filteredCrossAssets.map(crossPriceAsset => getPoolContracts(crossPriceAsset, [baseAsset, ...assets], network, enabledProviders))
     ])
-    const allPoolContracts = new Map(basePoolContracts)
-    for (const crossPools of crossPoolContracts) {
-        for (const [k, v] of crossPools)
-            allPoolContracts.set(k, v)
-    }
-    return allPoolContracts
+    const contracts = new Map()
+    const validPairs = new Set()
+    discoveries.forEach((discovery, i) => {
+        for (const [k, v] of discovery.contracts)
+            contracts.set(k, v)
+        for (const asset of discovery.validAssets)
+            validPairs.add(poolPairKey(bases[i], asset))
+    })
+    return {contracts, validPairs}
 }
 
 /**
@@ -40,12 +47,14 @@ async function discoverPools(baseAsset, assets, network, crossAssets) {
  * @param {number} period - period in seconds
  * @param {number} count - count of periods
  * @param {string[]} crossAssets - list of cross-price assets
+ * @param {{minBaseVolume: number}} guards - resolved pool guards
  * @returns {{volume: BigInt, quoteVolume: BigInt}[]}
  */
-function getVolumesData(cache, baseAsset, assets, network, from, period, count, crossAssets) {
+function getVolumesData(cache, baseAsset, assets, network, from, period, count, crossAssets, guards) {
+    //trades and pools are two observations of the same period; the trades count only when the period has its pool snapshot
     const volumesData = [
         getDexVolumes(cache, baseAsset, assets, network, from, period, count),
-        getPoolVolumes(cache, baseAsset, assets, network, from, period, count)
+        getPoolVolumes(cache, baseAsset, assets, network, from, period, count, guards)
     ]
     for (const crossAsset of crossAssets.filter(asset => asset !== baseAsset)) {
         const crossAssetTradesData = getDexVolumes(
@@ -64,9 +73,10 @@ function getVolumesData(cache, baseAsset, assets, network, from, period, count, 
             network,
             from,
             period,
-            count
+            count,
+            guards
         )
-        const normalized = normalizeCrossVolumes([crossAssetTradesData, crossAssetPoolsData], count, assets.length)
+        const normalized = normalizeCrossVolumes([crossAssetTradesData, crossAssetPoolsData], count, assets.length, crossAsset)
         volumesData.push(...normalized)
     }
     return volumesData
@@ -102,9 +112,10 @@ function getPrice(volumeData) {
  * @param {Array} volumesData - cross-pair accumulators, one row per source
  * @param {number} count - number of periods
  * @param {number} assetCount - number of tracked assets
+ * @param {string} crossAsset - cross-price asset (for logging)
  * @return {Array}
  */
-function normalizeCrossVolumes(volumesData, count, assetCount) {
+function normalizeCrossVolumes(volumesData, count, assetCount, crossAsset) {
     const sourceCount = volumesData.length
     const result = Array.from({length: sourceCount}, () =>
         Array.from({length: count}, () =>
@@ -117,6 +128,7 @@ function normalizeCrossVolumes(volumesData, count, assetCount) {
         const crossToBaseRate = getPrice(volumesData.map(src => src?.[period]?.[0]))
         if (crossToBaseRate === 0n)
             continue //skip period if no crossAsset/baseAsset data available
+        console.debug({msg: 'Cross rate applied', crossAsset, period, crossToBaseRate: crossToBaseRate.toString()})
         for (let c = 0; c < assetCount; c++) {
             for (let src = 0; src < sourceCount; src++) {
                 //slot c + 1 because slot 0 is the baseAsset accumulator
@@ -145,10 +157,11 @@ class StellarProvider {
         if (!cacheDir) {
             throw new Error('Invalid cache directory')
         }
+        //a previous cache keeps a minute timer and an RPC poll alive until it is disposed
+        await this.dispose()
         this.connector = new RpcConnector(rpcUrls, network)
         this.cache = new TxCache(this.connector)
-        configurePools(cacheDir)
-        await Promise.resolve()
+        configurePools(cacheDir, this.connector)
     }
 
     get network() {
@@ -165,26 +178,35 @@ class StellarProvider {
      * @param {number} options.count - number of periods
      * @param {string} [options.simSource] - account ID for simulateTransaction
      * @param {string[]} [options.crossAssets] - cross-price assets
+     * @param {{poolGuards: {minBaseVolume: number}, sources: Object.<string, object>}} [options.options] - caller options; this connector reads `poolGuards` and `sources` (the data source's providers block)
      * @return {Array<Array<Array<{volume: BigInt, quoteVolume: BigInt, ts: number}>>>}
      */
-    async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets}) {
+    async getPriceData({baseAsset, assets, from, period, count, simSource, crossAssets, options}) {
+        //the cache buckets transactions and pool snapshots by its own period; any other value silently mis-weights pools
+        if (period !== this.cache.period)
+            throw new Error(`Unsupported period ${period}. This connector aggregates ${this.cache.period}-second periods.`)
         //set crossAssets if not provided
         if (!crossAssets) {
             crossAssets = []
         }
-        //load pool contracts for the specified assets
-        const allPoolContracts = await discoverPools(baseAsset, assets, this.network, crossAssets)
-        //update cache with tokens metadata
-        await this.cache.updateTokenMeta([baseAsset, ...assets], simSource)
+        //the pool liquidity floor; overriding it on one node only removes that node from the cluster majority
+        const guards = resolvePoolGuards(options?.poolGuards)
+        //load pool contracts for the specified assets, from the providers the data source enables
+        const {contracts, validPairs} = await discoverPools(baseAsset, assets, this.network, crossAssets, options?.sources)
+        //update cache with tokens metadata (cross assets included - their decimals scale cross-denominated pools)
+        await this.cache.updateTokenMeta([baseAsset, ...assets, ...crossAssets], simSource)
+        //a tick still taking the snapshot for the period asked for has not staged it yet
+        await this.cache.whenIdle()
         //update cache with recent transactions and pools data (merged contracts)
-        await this.cache.updateCache(period, count, allPoolContracts)
+        await this.cache.updateCache(period, count, contracts, validPairs, baseAsset)
         //load all trade and pool volumes data for base and cross assets
-        const volumes = getVolumesData(this.cache, baseAsset, assets, this.network, from, period, count, crossAssets)
+        const volumes = getVolumesData(this.cache, baseAsset, assets, this.network, from, period, count, crossAssets, guards)
         //init result array of [period][asset] = [{volume, quoteVolume, ts}]
         const data = Array.from({length: count})
             .map(() => Array.from({length: assets.length}).map(() => null))
         for (let i = 0; i < count; i++) {
             const ts = from + period * i
+            const summary = []
             for (let j = 0; j < assets.length; j++) {
                 const assetVolumes = volumes.map(v => v?.[i]?.[j])
                 const {volume, quoteVolume} = aggregateVolumes(assetVolumes)
@@ -193,13 +215,20 @@ class StellarProvider {
                     quoteVolume,
                     ts
                 }]
+                if (volume > 0n || quoteVolume > 0n) {
+                    summary.push({asset: assets[j], volume: volume.toString(), quoteVolume: quoteVolume.toString()})
+                }
+            }
+            //compact always-on trail of the final per-asset values handed to the node
+            if (summary.length > 0) {
+                console.info({msg: 'Volumes aggregated', baseAsset, ts, volumes: summary})
             }
         }
         return data
     }
 
     dispose() {
-        this.cache.dispose()
+        return this.cache ? this.cache.dispose() : Promise.resolve()
     }
 }
 

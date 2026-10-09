@@ -5,7 +5,8 @@
  */
 const PoolType = {
     AQUA: 'AQUA',
-    STELLAR_LIQUIDITY: 'STELLAR_LIQUIDITY'
+    STELLAR_LIQUIDITY: 'STELLAR_LIQUIDITY',
+    SUSHISWAP: 'SUSHISWAP'
 }
 
 module.exports = PoolType

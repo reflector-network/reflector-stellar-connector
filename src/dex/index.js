@@ -23,20 +23,30 @@ function getDexVolumes(cache, baseAsset, assets, network, from, period, limit) {
     for (let i = 0; i < limit; i++) {
         const periodFrom = from + period * i
         const periodTo = periodFrom + period
-        const tradesAggregator = new DexTradesAggregator(baseAsset, assets, network, periodFrom)
-        //skip DEX for periods where pool reserves were never loaded
+        //trades count only beside the pool reserves of the same period; a snapshot holding no pools still counts
         if (cache.hasPoolDataForPeriod(periodFrom, periodTo)) {
-            //retrieve trades for current period
-            const tradesForPeriod = cache.getTradesForPeriod(periodFrom, periodTo)
-            //accumulate trades
-            tradesAggregator.processPeriodTrades(tradesForPeriod)
+            const tradesAggregator = new DexTradesAggregator(baseAsset, assets, network, periodFrom)
+            tradesAggregator.processPeriodTrades(cache.getTradesForPeriod(periodFrom, periodTo))
+            //aggregate volumes
+            const volumes = tradesAggregator.volumes
+            //an asset counts its trades only if discovery tried its pools for this period: a pool set that never
+            //looked for them (a newly added asset, a failed provider) cannot say the asset has no pools
+            const untried = []
+            for (let j = 0; j < assets.length; j++) {
+                if (cache.isPairValidForPeriod(periodFrom, periodTo, baseAsset, assets[j]))
+                    continue
+                volumes[j] = undefined
+                untried.push(assets[j])
+            }
+            if (untried.length > 0)
+                console.debug({msg: 'DEX trades not counted for assets whose pools were not tried', from: periodFrom, baseAsset, assets: untried})
+            //add to results
+            results.push(volumes)
         } else {
-            console.debug({msg: 'Skipping DEX trades — no pool data for period', from: periodFrom, to: periodTo})
+            console.warn({msg: 'No pool snapshot for period - DEX trades not counted', from: periodFrom, to: periodTo, network})
+            //no volume for any asset: one undefined per asset, the same shape as an aggregator with no trades
+            results.push(Array.from({length: assets.length}))
         }
-        //aggregate volumes
-        const volumes = tradesAggregator.volumes
-        //add to results
-        results.push(volumes)
     }
     return results
 }

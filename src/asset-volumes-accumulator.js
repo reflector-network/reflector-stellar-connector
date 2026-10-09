@@ -27,7 +27,7 @@ class AssetVolumesAccumulator {
             return
         this.volume += baseVolume
         this.quoteVolume += quoteVolume
-        console.debug({msg: `Adding volumes`, asset: this.asset, baseVolume, quoteVolume, ...extraData, ts: this.ts})
+        console.debug({msg: `Adding volumes`, asset: this.asset, baseVolume: baseVolume.toString(), quoteVolume: quoteVolume.toString(), ...extraData, ts: this.ts})
     }
 }
 

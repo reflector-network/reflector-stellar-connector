@@ -1,6 +1,13 @@
 const {StrKey} = require('@stellar/stellar-sdk')
 const {xdrParseResult} = require('./dex/meta-processor')
-const {normalizeTimestamp} = require('./utils')
+const {normalizeTimestamp, encodeAssetContractId, DEFAULT_DECIMALS, poolPairKey} = require('./utils')
+const {takePoolSnapshot} = require('./pool-snapshot')
+
+//a tick starts this long before its boundary, so it already holds a read of the period's last ledger when the next
+//ledger closes
+const snapshotLeadTime = 5000
+//and gives up this long after it: a node whose RPC shows no ledger past the boundary by then has no snapshot
+const snapshotDeadline = 10000
 
 /**
  * @typedef {import('./rpc-connector')} RpcConnector
@@ -21,7 +28,7 @@ class TxCache {
         this.size = cacheSize
         this.period = period
         this.rpcConnector = rpcConnector
-        this.__worker(normalizeTimestamp(Date.now(), this.period * 1000))
+        this.__scheduleWorker(normalizeTimestamp(Date.now(), this.period * 1000) + this.period * 1000)
     }
 
     get network() {
@@ -29,41 +36,69 @@ class TxCache {
     }
 
     /**
-     * @param {number} targetTimestamp - timestamp in ms
+     * Start the tick for a boundary snapshotLeadTime before it
+     * @param {number} targetTimestamp - boundary, ms
+     * @private
+     */
+    __scheduleWorker(targetTimestamp) {
+        if (this.__disposed)
+            return
+        const timeout = targetTimestamp - snapshotLeadTime - Date.now()
+        this.__workerTimeout = setTimeout(() => {
+            this.__tick = this.__worker(targetTimestamp)
+        }, Math.max(1, timeout))
+    }
+
+    /**
+     * Take the pool snapshot for the period that ends at a boundary and stage it
+     * @param {number} targetTimestamp - boundary, ms
      */
     async __worker(targetTimestamp) {
+        const boundary = targetTimestamp / 1000
         console.info({msg: 'Start stellar-connector pools instance worker', network: this.network, targetTimestamp})
         try {
-            let dataTimestamp = 0
-            while (targetTimestamp + 10000 > Date.now()) { //wait up to 10 seconds after the target timestamp
-                const info = await this.rpcConnector.getLedgerInfo()
-                const ledgerCloseTime = (info?.latestLedgerCloseTime ?? 0) * 1000
-                if (ledgerCloseTime > targetTimestamp) {
-                    dataTimestamp = info.latestLedgerCloseTime
-                    console.debug({msg: 'Ledger close time', network: this.network, ledgerCloseTime, targetTimestamp})
-                    break //we have reached the target timestamp
-                }
-                await new Promise(resolve => setTimeout(resolve, 500))
-            }
-            if (!dataTimestamp) {
-                console.warn({msg: 'Unable to receive ledger close time', targetTimestamp, network: this.network})
+            //an empty set would read as "this asset has no pools" and let the period's DEX trades count
+            if (!this.poolContracts) {
+                //a data source no contract prices from never gets a pool set: say so once, not every period
+                const log = this.__noPoolsReported ? console.debug : console.warn
+                this.__noPoolsReported = true
+                log({msg: 'Pool contracts not known yet - no pool snapshot for period', network: this.network, boundary})
                 return
             }
-            //update cache with recent data
-            const poolData = await this.rpcConnector.loadContractInstances([...this.poolContracts.keys()])
-            if (!poolData || poolData.size === 0) {
-                //still stage empty poolData so the current slot is marked worker-visited
-                console.warn({msg: 'No pool contracts defined for stellar-connector pools instance', network: this.network})
+            this.__noPoolsReported = false
+            //the pool set read and the pairs its discovery tried travel with the snapshot: decoding it with a later
+            //discovery's set would drop the pools of a provider that failed since, beside pairs that still count
+            const poolContracts = this.poolContracts
+            const validPairs = this.validPairs
+            const result = await takePoolSnapshot({
+                rpcConnector: this.rpcConnector,
+                contracts: [...poolContracts.keys()],
+                boundary,
+                deadline: targetTimestamp + snapshotDeadline,
+                isCancelled: () => this.__disposed
+            })
+            if (this.__disposed)
+                return
+            if (result.failure) {
+                const {failure, ...details} = result
+                console.warn({msg: 'No pool snapshot for period', network: this.network, boundary, reason: failure, ...details})
+                return
             }
-            this.pendingPoolData = {timestamp: normalizeTimestamp(dataTimestamp, this.period), poolData: poolData || new Map()}
+            //the state at the period's last ledger belongs to the period that the boundary closes, beside its DEX trades
+            const slot = boundary - this.period
+            const {servedLedger, instances: poolData} = result
+            this.pendingPoolData.set(slot, {slot, boundary, servedLedger, poolData, poolContracts, validPairs})
+            //an entry this old would be evicted on its next apply anyway (__evictExpired keeps only `size` slots), so
+            //dropping it here unapplied cannot discard anything that could still land in a kept slot
+            const oldestKeptSlot = slot - this.size * this.period
+            for (const staleSlot of this.pendingPoolData.keys()) {
+                if (staleSlot < oldestKeptSlot)
+                    this.pendingPoolData.delete(staleSlot)
+            }
         } catch (err) {
             console.error({err, msg: 'Error in stellar-connector pools instance', network: this.network})
         } finally {
-            targetTimestamp += this.period * 1000 //period to ms
-            const timeout = targetTimestamp - 100 - Date.now() //run 100 milliseconds before the next period
-            console.debug({msg: 'Stellar-connector timeout', network: this.network, timeout})
-            if (!this.__disposed)
-                this.__workerTimeout = setTimeout(() => this.__worker(targetTimestamp), Math.max(1, timeout))
+            this.__scheduleWorker(targetTimestamp + this.period * 1000)
         }
     }
 
@@ -89,20 +124,53 @@ class TxCache {
      */
     __latestTimestamp = 0
     /**
-     * Pools data structure: key is the pool contract ID and value are the tokens and their reserves. poolData is null if no worker tick has visited the period; otherwise a Map (possibly empty).
-     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}> | null, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
+     * Pools data structure: key is the pool contract ID and value are the tokens and their reserves. poolData is null until the period's pool snapshot is applied; then a Map, empty when the snapshot holds no pools. validPairs is null until the period's snapshot is applied; then the pairs whose pools discovery tried for it.
+     * @type {Map<number, {trades: Trade[], poolData: Map<string, {tokens: string[], reserves: BigInt[]}> | null, validPairs: Set<string>|null, processedTxs: Set<string>, ledgers: {min: number, max: number}}>}
      * @private
      */
     timestampData = new Map()
     /**
-     * @type {Map<string, PoolProviderBase>}
+     * Tracked pools and their providers; null until the first updateCache
+     * @type {Map<string, PoolProviderBase>|null}
      * @private
      */
-    poolContracts = new Map()
+    poolContracts = null
     /**
-     * @type {{timestamp: number, poolData: Map<string, {key: string, xdr: string, lastModifiedLedger: number}>}}
+     * Keys of the (base, asset) pairs whose pools discovery tried for poolContracts (poolPairKey); null until the
+     * first updateCache
+     * @type {Set<string>|null}
+     * @private
      */
-    pendingPoolData = null
+    validPairs = null
+    /**
+     * Discovery results by the base asset they were discovered for; poolContracts and validPairs are their union
+     * @type {Map<string, {poolContracts: Map<string, PoolProviderBase>, validPairs: Set<string>}>}
+     * @private
+     */
+    __discoveries = new Map()
+    /**
+     * Snapshots taken and not yet applied, by the slot they belong to, with the pool set they were read with
+     * @type {Map<number, {slot: number, boundary: number, servedLedger: number|null, poolData: Map<string, {key: string, xdr: string, lastModifiedLedgerSeq: number}>, poolContracts: Map<string, PoolProviderBase>, validPairs: Set<string>}>}
+     */
+    pendingPoolData = new Map()
+    /**
+     * The promise of the tick currently running, so {@link dispose} can wait for it
+     * @type {Promise<void>|null}
+     * @private
+     */
+    __tick = null
+    /**
+     * Handle of the timer that starts the next tick. Declared here so it reads `null` before the first tick
+     * completes instead of being absent, which is what makes the disposal tests deterministic
+     * @type {object|null}
+     * @private
+     */
+    __workerTimeout = null
+    /**
+     * @type {boolean}
+     * @private
+     */
+    __disposed = false
     /**
      * @type {Map<string, {decimals: number}>}
      */
@@ -172,7 +240,7 @@ class TxCache {
     }
 
     /**
-     * Whether every slot in the range has been visited by the pool worker (poolData is a Map, possibly empty).
+     * Whether every slot in the range has its pool snapshot (poolData is a Map, possibly empty).
      * @param {number} from - period range start
      * @param {number} to - period range end
      * @return {boolean}
@@ -186,6 +254,24 @@ class TxCache {
         return true
     }
 
+    /**
+     * Whether every slot in the range was read with a pool set whose discovery tried the pair's pools
+     * @param {number} from - period range start
+     * @param {number} to - period range end
+     * @param {string} baseAsset - base asset of the pair; the cross asset on the cross path
+     * @param {string} asset - tracked asset
+     * @return {boolean}
+     */
+    isPairValidForPeriod(from, to, baseAsset, asset) {
+        const key = poolPairKey(baseAsset, asset)
+        for (let ts = from; ts < to; ts += this.period) {
+            const data = this.timestampData.get(ts)
+            if (!data || !data.validPairs || !data.validPairs.has(key))
+                return false
+        }
+        return true
+    }
+
 
     /**
      * Update tokens metadata in cache by loading it from the blockchain
@@ -194,6 +280,18 @@ class TxCache {
      * @return {Promise<void>}
      */
     async updateTokenMeta(assets, accountId = "GDLMOS3LF2CRRFCWDJ6TX3YIEYBBTZGAF3BSSEXOXFZWYHSCOHT6DRFX") {
+        //a classic asset is always wrapped with 7 decimals, so its SAC metadata is known without an RPC round trip
+        for (const asset of assets) {
+            if (!asset || StrKey.isValidContract(asset))
+                continue
+            try {
+                const contractId = encodeAssetContractId(asset, this.network)
+                if (!this.tokensMeta.has(contractId))
+                    this.tokensMeta.set(contractId, {decimals: DEFAULT_DECIMALS})
+            } catch (err) {
+                console.warn({msg: 'Unable to derive the contract id of a classic asset', asset, err: err.message})
+            }
+        }
         if (!accountId)
             return
         const now = Date.now()
@@ -215,6 +313,7 @@ class TxCache {
                 if (isNaN(res) || res < 0 || res > 255)
                     throw new Error(`Invalid decimals value for token ${token}: ${result[0]}`)
                 this.tokensMeta.set(token, {decimals: res})
+                console.info({msg: 'Token decimals loaded', token, decimals: res})
             }).catch(err => {
                 console.error({msg: 'Error loading token decimals', token, err})
                 this.tokensMeta.set(token, {failedAt: now}) //set empty meta to avoid repeated failed attempts
@@ -228,13 +327,25 @@ class TxCache {
      * @param {number} period - Period in seconds
      * @param {number} limit - Number of periods to fetch
      * @param {Map<string, PoolProviderBase>} poolContracts - List of pool contracts to fetch with their providers
+     * @param {Set<string>} [validPairs] - pairs whose pools discovery tried (poolPairKey); none when omitted
+     * @param {string} [discoveryKey] - the base asset the discovery was made for
      * @return {Promise<void>}
      */
-    async updateCache(period, limit, poolContracts) {
+    async updateCache(period, limit, poolContracts, validPairs = new Set(), discoveryKey = '') {
+        //update tracked contracts, and the pairs their discovery tried. Each base asset's call replaces its own
+        //discovery and the tick reads the union, so calls for different base assets on one source cannot take turns
+        //erasing each other's pools and pairs
+        this.__discoveries.set(discoveryKey, {poolContracts, validPairs})
+        this.poolContracts = new Map()
+        this.validPairs = new Set()
+        for (const discovery of this.__discoveries.values()) {
+            for (const [contractId, provider] of discovery.poolContracts)
+                this.poolContracts.set(contractId, provider)
+            for (const pair of discovery.validPairs)
+                this.validPairs.add(pair)
+        }
         //process transaction data
         await this.__processTxData(period, limit)
-        //update tracked contracts
-        this.poolContracts = poolContracts
         //process pending pool data
         this.__processPoolData()
         //clean up unneeded entries from cache
@@ -248,24 +359,29 @@ class TxCache {
         const tempTxData = new Map()
         //function to add transaction data to the temporary map
         const addToTemp = (tx) => {
-            //normalize timestamp
-            const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
+            try {
+                //normalize timestamp
+                const txTimestamp = normalizeTimestamp(tx.createdAt, this.period)
 
-            //get or create timestamp data
-            const tsTransactions = this.__ensureTimestampData(txTimestamp)
-            if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
-                return
+                //get or create timestamp data
+                const tsTransactions = this.__ensureTimestampData(txTimestamp)
+                if (tsTransactions.processedTxs.has(tx.txHash)) //already processed
+                    return
 
-            //try get trades from the transaction
-            const trades = xdrParseResult(tx) || []
-            let ledgerData = tempTxData.get(tx.ledger)
-            if (!ledgerData) {
-                ledgerData = {txs: [], hashes: new Set(), timestamp: txTimestamp}
-                tempTxData.set(tx.ledger, ledgerData)
+                //try get trades from the transaction
+                const trades = xdrParseResult(tx) || []
+                let ledgerData = tempTxData.get(tx.ledger)
+                if (!ledgerData) {
+                    ledgerData = {txs: [], hashes: new Set(), timestamp: txTimestamp}
+                    tempTxData.set(tx.ledger, ledgerData)
+                }
+                //push tx and trade data
+                ledgerData.txs.push({trades, txHash: tx.txHash})
+                ledgerData.hashes.add(tx.txHash)
+            } catch (err) {
+                //a single unusable transaction must never fail the range it arrived in
+                console.error({msg: 'Error processing transaction', txHash: tx?.txHash, ledger: tx?.ledger, err})
             }
-            //push tx and trade data
-            ledgerData.txs.push({trades, txHash: tx.txHash})
-            ledgerData.hashes.add(tx.txHash)
         }
         //load ranges in parallel
         const results = await Promise.all(ranges.map(range => this.rpcConnector.fetchTransactions(range.from, range.to, tx => addToTemp(tx))
@@ -291,58 +407,34 @@ class TxCache {
     }
 
     /**
-     * Process pending pool data
+     * Apply every staged snapshot to its own slot. A slot holds its own period's snapshot and nothing else: no reading
+     * is copied into another period
      * @private
      */
     __processPoolData() {
-        //retrieve pending pool data
-        if (!this.pendingPoolData)
-            return
-        const {timestamp, poolData} = this.pendingPoolData
-        //iterate over all loaded pool instances
-        for (const [contractId, instanceData] of poolData) {
-            const provider = this.poolContracts.get(contractId)
-            if (!provider)
-                continue //unknown contract - skip
-            //get pool last modified ledger
-            const poolLedger = instanceData.lastModifiedLedgerSeq
-            //decode pool instance data
-            const {reserves, tokens} =
-                provider.processPoolInstance(instanceData.xdr, contractId, this.network, this.tokensMeta, poolLedger) || {}
-            if (!reserves || !tokens)
-                continue //invalid or unsupported pool - skip
-            //attach pools data to target timestamps
-            const targetTimestampData = this.__getPoolAttachTargets(poolLedger, timestamp)
-            for (const [, data] of targetTimestampData) {
-                //lazy-init Map for slots never worker-visited
-                if (data.poolData === null)
-                    data.poolData = new Map()
-                //set pool data
-                data.poolData.set(contractId, {reserves, tokens})
+        for (const {slot, boundary, servedLedger, poolData, poolContracts, validPairs} of this.pendingPoolData.values()) {
+            const slotPools = new Map()
+            const appliedPools = []
+            for (const [contractId, instanceData] of poolData) {
+                const provider = poolContracts?.get(contractId)
+                if (!provider)
+                    continue //not in the pool set the snapshot was read with - skip
+                //the state is taken at the boundary, so a stableswap amplification ramp is evaluated there
+                const {reserves, tokens} = provider.processPoolInstance(instanceData.xdr, contractId, this.network,
+                    this.tokensMeta, instanceData.lastModifiedLedgerSeq, boundary) || {}
+                if (!reserves || !tokens)
+                    continue //invalid or unsupported pool - skip
+                slotPools.set(contractId, {reserves, tokens})
+                appliedPools.push({poolId: contractId, tokens, reserves: [reserves[0].toString(), reserves[1].toString()]})
             }
+            //a period older than the cache keeps is recreated here and evicted by the same update
+            const slotData = this.__ensureTimestampData(slot)
+            slotData.poolData = slotPools
+            slotData.validPairs = validPairs || new Set()
+            //the reserves this node actually priced with, per period, so an excursion can be reconstructed instead of inferred
+            console.info({msg: 'Pool reserves snapshot', network: this.network, timestamp: slot, boundary, servedLedger, pools: appliedPools})
         }
-        //mark current slot as worker-visited even if no pools applied
-        const currentSlot = this.__ensureTimestampData(timestamp)
-        if (currentSlot.poolData === null)
-            currentSlot.poolData = new Map()
-        //clear pending data
-        this.pendingPoolData = null
-    }
-
-    __getPoolAttachTargets(ledger, currentTimestamp) {
-        //walk slots ascending — once one covers the pool's last-modified ledger, every later slot inherits the same stable state
-        const timestamps = [...this.timestampData.keys()].filter(t => t < currentTimestamp).sort((a, b) => a - b)
-        const targetTimestampData = new Map()
-        let foundCoveringSlot = false
-        for (const timestamp of timestamps) {
-            const data = this.timestampData.get(timestamp)
-            if (data.ledgers.max >= ledger)
-                foundCoveringSlot = true
-            if (foundCoveringSlot)
-                targetTimestampData.set(timestamp, data)
-        }
-        targetTimestampData.set(currentTimestamp, this.__ensureTimestampData(currentTimestamp))
-        return targetTimestampData
+        this.pendingPoolData.clear()
     }
 
     /**
@@ -371,19 +463,32 @@ class TxCache {
         let tsData = this.timestampData.get(timestamp)
         if (tsData)
             return tsData
-        tsData = {trades: [], poolData: null, processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
+        tsData = {trades: [], poolData: null, validPairs: null, processedTxs: new Set(), ledgers: {min: Infinity, max: 0}}
         this.timestampData.set(timestamp, tsData)
         if (timestamp > this.__latestTimestamp)
             this.__latestTimestamp = timestamp
         return tsData
     }
 
-    dispose() {
+    /**
+     * Resolves when no tick is running, so a read does not race the snapshot being taken
+     * @return {Promise<void>}
+     */
+    async whenIdle() {
+        await this.__tick
+    }
+
+    /**
+     * Stop the worker and wait for a tick that is already running, so no request outlives the cache
+     * @return {Promise<void>}
+     */
+    async dispose() {
+        this.__disposed = true
         if (this.__workerTimeout) {
             clearTimeout(this.__workerTimeout)
             this.__workerTimeout = null
-            this.__disposed = true
         }
+        await this.__tick
     }
 }
 

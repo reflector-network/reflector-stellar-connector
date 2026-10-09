@@ -206,7 +206,7 @@ describe('get price test', () => {
         const totalRes = []
         while (from < targetTimestamp) {
             const pools = new Map()
-            for (const poolContract of provider.cache.poolContracts) {
+            for (const poolContract of provider.cache.poolContracts || []) {
                 const [poolAddress, poolProvider] = poolContract
                 let instanceData = null
                 if (poolProvider.constructor.name === 'AquaPoolProvider') {
@@ -216,7 +216,8 @@ describe('get price test', () => {
                 }
                 pools.set(poolAddress, instanceData)
             }
-            provider.cache.pendingPoolData = {timestamp: from + tf, poolData: pools}
+            //the state at from + tf closes the period that starts at from
+            provider.cache.pendingPoolData.set(from, {slot: from, boundary: from + tf, servedLedger: null, poolData: pools})
             try {
                 const result = await provider.getPriceData({
                     baseAsset: usdcBase,
@@ -269,7 +270,10 @@ describe('get price test', () => {
         }
 
         console.table(collectedLogs)
-        fs.writeFileSync('collected-logs.json', JSON.stringify(collectedLogs))
+        //diagnostic output belongs outside the repository
+        const logFile = process.env.STELLAR_CONNECTOR_LOG_FILE || path.join(os.tmpdir(), 'stellar-connector-collected-logs.json')
+        fs.writeFileSync(logFile, JSON.stringify(collectedLogs))
+        console.info({msg: 'Collected logs written', logFile})
 
         console.info('Final Results:')
         console.table(finalRes)

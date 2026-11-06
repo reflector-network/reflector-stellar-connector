@@ -69,16 +69,14 @@ describe('AquaPoolProvider provenance', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         provider = new AquaPoolProvider()
-        provider.__cached = [{address: POOL, assets: [TOKEN_B, TOKEN_A], type: 'constant_product'}]
-        provider.__lastUpdated = Number.MAX_SAFE_INTEGER //no refresh during the test
     })
 
-    test('serves pubnet only', async () => {
+    test('serves another network only from an aquaListUrl set for it', async () => {
         expect(await provider.getTargetPools('XLM', ['AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'], Networks.TESTNET)).toEqual(new Map([['AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA', []]]))
     })
 
     test('rejects an instance whose tokens are not the declared pair', () => {
-        provider.__declaredTokens = new Map([[POOL, [TOKEN_A, TOKEN_B].sort()]])
+        provider.__declaredTokens = new Map([[Networks.PUBLIC, new Map([[POOL, [TOKEN_A, TOKEN_B].sort()]])]])
         getContractInstanceValues.mockReturnValue({
             ReserveA: 1000n,
             ReserveB: 2000n,
@@ -89,7 +87,7 @@ describe('AquaPoolProvider provenance', () => {
     })
 
     test('accepts an instance that matches the declared pair', () => {
-        provider.__declaredTokens = new Map([[POOL, [TOKEN_A, TOKEN_B].sort()]])
+        provider.__declaredTokens = new Map([[Networks.PUBLIC, new Map([[POOL, [TOKEN_A, TOKEN_B].sort()]])]])
         getContractInstanceValues.mockReturnValue({ReserveA: 1000n, ReserveB: 2000n, Tokens: [TOKEN_A, TOKEN_B]})
         const result = provider.processPoolInstance('XDR', POOL, Networks.PUBLIC, new Map(), 123, 1780009200)
         expect(result.tokens).toEqual([TOKEN_A, TOKEN_B])

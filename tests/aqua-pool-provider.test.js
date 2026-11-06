@@ -26,6 +26,9 @@ const SAMPLE_POOLS = [
     {address: 'POOL_B', assets: ['TOKEN_C', 'TOKEN_D'], type: 'stableswap'}
 ]
 
+//the pairs the API declared for the pools of network 'net', the network the processPoolInstance tests pass
+const DECLARED = new Map([['net', new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])]])
+
 console.warn = jest.fn()
 console.error = jest.fn()
 console.debug = jest.fn()
@@ -50,65 +53,92 @@ describe('AquaPoolProvider on-disk cache', () => {
     describe('configure', () => {
         it('sets cache file path even when no snapshot exists', () => {
             provider.configure(cacheDir)
-            expect(provider.__cached).toBeNull()
+            expect(provider.__lists.size).toBe(0)
             expect(console.warn).not.toHaveBeenCalled()
         })
 
         it('reads a legacy cache file (a bare array) as the list of the default URL', () => {
             fs.writeFileSync(cacheFile, JSON.stringify(SAMPLE_POOLS))
             provider.configure(cacheDir)
-            expect(provider.__cached).toEqual(SAMPLE_POOLS)
-            expect(provider.__listUrl).toBe(AQUA_API_URL)
+            expect(provider.__lists.get(AQUA_API_URL).pools).toEqual(SAMPLE_POOLS)
         })
 
-        it('reads a cache file that records the URL its list came from', () => {
+        it('reads a single-list cache file as the list of the URL it records', () => {
             fs.writeFileSync(cacheFile, JSON.stringify({url: BACKUP_URL, pools: SAMPLE_POOLS}))
             provider.configure(cacheDir)
-            expect(provider.__cached).toEqual(SAMPLE_POOLS)
-            expect(provider.__listUrl).toBe(BACKUP_URL)
+            expect(provider.__lists.get(BACKUP_URL).pools).toEqual(SAMPLE_POOLS)
+            expect(provider.__lists.has(AQUA_API_URL)).toBe(false)
         })
 
-        it('leaves __lastUpdated at 0 so the next call still refreshes', () => {
+        it('reads the list of every URL in a cache file, skipping an entry that is not a list', () => {
+            fs.writeFileSync(cacheFile, JSON.stringify({lists: {[AQUA_API_URL]: SAMPLE_POOLS, [BACKUP_URL]: 'not a list'}}))
+            provider.configure(cacheDir)
+            expect(provider.__lists.get(AQUA_API_URL).pools).toEqual(SAMPLE_POOLS)
+            expect(provider.__lists.has(BACKUP_URL)).toBe(false)
+        })
+
+        it('leaves lastUpdated at 0 so the next call still refreshes', () => {
             fs.writeFileSync(cacheFile, JSON.stringify(SAMPLE_POOLS))
             provider.configure(cacheDir)
-            expect(provider.__lastUpdated).toBe(0)
+            expect(provider.__lists.get(AQUA_API_URL).lastUpdated).toBe(0)
         })
 
-        it('ignores a cache file that is neither a list nor {url, pools}', () => {
+        it('ignores a cache file that is neither a list, {url, pools} nor {lists}', () => {
             fs.writeFileSync(cacheFile, JSON.stringify({pools: SAMPLE_POOLS}))
             provider.configure(cacheDir)
-            expect(provider.__cached).toBeNull()
+            expect(provider.__lists.size).toBe(0)
         })
 
         it('warns and continues when cache file contains invalid JSON', () => {
             fs.writeFileSync(cacheFile, '{not valid json')
             provider.configure(cacheDir)
-            expect(provider.__cached).toBeNull()
+            expect(provider.__lists.size).toBe(0)
             expect(console.warn).toHaveBeenCalled()
         })
     })
 
     describe('__persistCache', () => {
         it('does nothing when configure has not been called', async () => {
-            provider.__cached = SAMPLE_POOLS
+            provider.__getList(AQUA_API_URL).pools = SAMPLE_POOLS
             await provider.__persistCache()
             expect(fs.existsSync(cacheFile)).toBe(false)
         })
 
         it('atomically writes the in-memory cache to disk', async () => {
             provider.configure(cacheDir)
-            provider.__cached = SAMPLE_POOLS
-            provider.__listUrl = AQUA_API_URL
+            provider.__getList(AQUA_API_URL).pools = SAMPLE_POOLS
             await provider.__persistCache()
             const written = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
-            expect(written).toEqual({url: AQUA_API_URL, pools: SAMPLE_POOLS})
+            expect(written).toEqual({lists: {[AQUA_API_URL]: SAMPLE_POOLS}})
             //tmp file should have been renamed away
             expect(fs.existsSync(cacheFile + '.tmp')).toBe(false)
         })
 
+        it('leaves the latest lists on disk when the writes of two refreshes overlap', async () => {
+            provider.configure(cacheDir)
+            const writeFile = fs.promises.writeFile
+            let writes = 0
+            const spy = jest.spyOn(fs.promises, 'writeFile').mockImplementation(async (...args) => {
+                if (writes++ === 0)
+                    await new Promise(resolve => setTimeout(resolve, 50)) //the first write is slow and finishes last
+                return writeFile.apply(fs.promises, args)
+            })
+            try {
+                provider.__getList(AQUA_API_URL).pools = SAMPLE_POOLS
+                const first = provider.__persistCache()
+                provider.__getList(BACKUP_URL).pools = SAMPLE_POOLS //a second list refreshes meanwhile
+                await Promise.all([first, provider.__persistCache()])
+            } finally {
+                spy.mockRestore()
+            }
+            expect(console.error).not.toHaveBeenCalled()
+            const written = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
+            expect(written).toEqual({lists: {[AQUA_API_URL]: SAMPLE_POOLS, [BACKUP_URL]: SAMPLE_POOLS}})
+        })
+
         it('logs and swallows errors instead of throwing', async () => {
             provider.configure(cacheDir)
-            provider.__cached = SAMPLE_POOLS
+            provider.__getList(AQUA_API_URL).pools = SAMPLE_POOLS
             //point cache file at a path inside a non-existent directory to force a write error
             provider.__cacheFile = path.join(cacheDir, 'missing-subdir', CACHE_FILENAME)
             await expect(provider.__persistCache()).resolves.toBeUndefined()
@@ -121,9 +151,9 @@ describe('AquaPoolProvider on-disk cache', () => {
             provider.configure(cacheDir)
             provider.__loadPools = jest.fn().mockResolvedValue(SAMPLE_POOLS)
             await provider.__maybeRefreshPools(AQUA_API_URL)
-            expect(provider.__cached).toEqual(SAMPLE_POOLS)
+            expect(provider.__lists.get(AQUA_API_URL).pools).toEqual(SAMPLE_POOLS)
             const written = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
-            expect(written).toEqual({url: AQUA_API_URL, pools: SAMPLE_POOLS})
+            expect(written).toEqual({lists: {[AQUA_API_URL]: SAMPLE_POOLS}})
         })
 
         it('does not write to disk when refresh fails', async () => {
@@ -148,7 +178,7 @@ describe('AquaPoolProvider on-disk cache', () => {
             expect(provider.__loadPools).toHaveBeenCalledTimes(1)
             expect(console.error).not.toHaveBeenCalled()
             const written = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
-            expect(written).toEqual({url: AQUA_API_URL, pools: SAMPLE_POOLS})
+            expect(written).toEqual({lists: {[AQUA_API_URL]: SAMPLE_POOLS}})
         })
     })
 
@@ -165,7 +195,7 @@ describe('AquaPoolProvider on-disk cache', () => {
         const periodTimestamp = Math.floor(Date.now() / 1000)
 
         it('replaces stable pool reserves with min-corrected volumes', () => {
-            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
+            provider.__declaredTokens = DECLARED
             const reserves = [3083627186900000000n, 4000679061030000000n]
             extractAquaPoolData.mockReturnValueOnce({reserves: [...reserves], tokens: ['TOKEN_C', 'TOKEN_D'], stableData})
             const result = provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123, periodTimestamp)
@@ -178,7 +208,7 @@ describe('AquaPoolProvider on-disk cache', () => {
         })
 
         it('skips stable pools too shallow to price', () => {
-            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
+            provider.__declaredTokens = DECLARED
             extractAquaPoolData.mockReturnValueOnce({reserves: [1n, 1n], tokens: ['TOKEN_C', 'TOKEN_D'], stableData})
             expect(provider.processPoolInstance('XDR', 'POOL_B', 'net', new Map(), 123, periodTimestamp)).toBeNull()
             expect(console.error).not.toHaveBeenCalled() //a shallow pool is not an error condition
@@ -189,7 +219,7 @@ describe('AquaPoolProvider on-disk cache', () => {
         const periodTimestamp = Math.floor(Date.now() / 1000)
 
         it('replaces concentrated pool reserves with min-corrected volumes', () => {
-            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
+            provider.__declaredTokens = DECLARED
             const reserves = [3398582110570000000n, 3710021060590000000n]
             const concentratedData = {sqrtPriceX96: 79246271960821347022979480869n, digits: [7, 7]}
             extractAquaPoolData.mockReturnValueOnce({reserves: [...reserves], tokens: ['TOKEN_C', 'TOKEN_D'], concentratedData})
@@ -201,7 +231,7 @@ describe('AquaPoolProvider on-disk cache', () => {
         })
 
         it('skips concentrated pools with uninitialized price', () => {
-            provider.__declaredTokens = new Map([['POOL_B', ['TOKEN_C', 'TOKEN_D']], ['POOL_C', ['TOKEN_C', 'TOKEN_D']]])
+            provider.__declaredTokens = DECLARED
             const concentratedData = {sqrtPriceX96: 0n, digits: [7, 7]}
             extractAquaPoolData.mockReturnValueOnce({reserves: [1000000000000000000n, 1000000000000000000n], tokens: ['TOKEN_C', 'TOKEN_D'], concentratedData})
             expect(provider.processPoolInstance('XDR', 'POOL_C', 'net', new Map(), 123, periodTimestamp)).toBeNull()
@@ -218,8 +248,7 @@ describe('AquaPoolProvider on-disk cache', () => {
         //second lifecycle: fresh instance, same cacheDir
         const restarted = new AquaPoolProvider()
         restarted.configure(cacheDir)
-        expect(restarted.__cached).toEqual(SAMPLE_POOLS)
-        expect(restarted.__listUrl).toBe(AQUA_API_URL)
+        expect(restarted.__lists.get(AQUA_API_URL).pools).toEqual(SAMPLE_POOLS)
     })
 })
 
@@ -259,7 +288,7 @@ describe('AquaPoolProvider.getTargetPools', () => {
         await expect(provider.getTargetPools(USDC, [AQUA], Networks.PUBLIC)).rejects.toThrow('No Aqua pool list loaded from amm-api.aqua.network')
     })
 
-    it('returns an empty list per asset on another network without loading anything', async () => {
+    it('returns an empty list per asset on another network without aquaListUrl, without loading anything', async () => {
         provider.__loadPools = jest.fn().mockResolvedValue(LIST)
         const pools = await provider.getTargetPools(USDC, [AQUA], Networks.TESTNET)
         expect(pools).toEqual(new Map([[AQUA, []]]))
@@ -281,7 +310,7 @@ describe('AquaPoolProvider.getTargetPools', () => {
     it('keeps using the stale list of the same URL when a refresh fails', async () => {
         provider.__loadPools = jest.fn().mockResolvedValueOnce(LIST).mockRejectedValue(new Error('down'))
         await provider.getTargetPools(USDC, [AQUA], Networks.PUBLIC)
-        provider.__lastUpdated = 0 //the next hour: a refresh is due
+        provider.__lists.get(AQUA_API_URL).lastUpdated = 0 //the next hour: a refresh is due
         const pools = await provider.getTargetPools(USDC, [AQUA], Networks.PUBLIC)
         expect(provider.__loadPools).toHaveBeenCalledTimes(2)
         expect(pools.get(AQUA)).toEqual(['POOL_1', 'POOL_2'])
@@ -324,5 +353,82 @@ describe('AquaPoolProvider.getTargetPools', () => {
         provider.__loadPools = jest.fn().mockResolvedValue(LIST)
         const pools = await provider.getTargetPools(USDC, ['INVALID', AQUA], Networks.PUBLIC)
         expect(pools).toEqual(new Map([['INVALID', []], [AQUA, ['POOL_1', 'POOL_2']]]))
+    })
+})
+
+//one provider instance serves every data source of a node, so pubnet and testnet share it
+describe('AquaPoolProvider on pubnet and testnet at once', () => {
+    const TESTNET_URL = 'https://amm-api-testnet.aqua.network/pools/?size=500'
+    const USDC = 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
+    const AQUA = 'AQUA:GBNZILSTVQZ4R7IKQDGHYGY2QXL5QOFJYQMXPKWRRM5PAV7Y4M67AQUA'
+    //the same asset has a different contract id on every network
+    const pubnetPair = [encodeAssetContractId(USDC, Networks.PUBLIC), encodeAssetContractId(AQUA, Networks.PUBLIC)]
+    const testnetPair = [encodeAssetContractId(USDC, Networks.TESTNET), encodeAssetContractId(AQUA, Networks.TESTNET)]
+    const LISTS = {
+        [AQUA_API_URL]: [{address: 'PUBNET_POOL', assets: pubnetPair, type: 'constant_product'}],
+        [TESTNET_URL]: [{address: 'TESTNET_POOL', assets: testnetPair, type: 'constant_product'}]
+    }
+    const periodTimestamp = Math.floor(Date.now() / 1000)
+    let provider
+    let cacheDir
+
+    const onPubnet = target => target.getTargetPools(USDC, [AQUA], Networks.PUBLIC)
+    const onTestnet = target => target.getTargetPools(USDC, [AQUA], Networks.TESTNET, {aquaListUrl: TESTNET_URL})
+
+    beforeEach(() => {
+        jest.clearAllMocks()
+        cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aqua-two-networks-test-'))
+        provider = new AquaPoolProvider()
+        provider.configure(cacheDir)
+        provider.__loadPools = jest.fn(url => Promise.resolve(LISTS[url]))
+    })
+
+    afterEach(() => {
+        fs.rmSync(cacheDir, {recursive: true, force: true})
+    })
+
+    it('finds the pools of another network in the list of its aquaListUrl', async () => {
+        expect(await onTestnet(provider)).toEqual(new Map([[AQUA, ['TESTNET_POOL']]]))
+        expect(provider.__loadPools).toHaveBeenCalledWith(TESTNET_URL)
+    })
+
+    it('keeps the list of each URL, without reloading either when the networks alternate', async () => {
+        expect(await onPubnet(provider)).toEqual(new Map([[AQUA, ['PUBNET_POOL']]]))
+        expect(await onTestnet(provider)).toEqual(new Map([[AQUA, ['TESTNET_POOL']]]))
+        expect(await onPubnet(provider)).toEqual(new Map([[AQUA, ['PUBNET_POOL']]]))
+        expect(await onTestnet(provider)).toEqual(new Map([[AQUA, ['TESTNET_POOL']]]))
+        expect(provider.__loadPools.mock.calls).toEqual([[AQUA_API_URL], [TESTNET_URL]])
+    })
+
+    it('loads both lists when the two networks refresh at the same time', async () => {
+        //every load takes a while, so the two refreshes overlap
+        provider.__loadPools = jest.fn(url => new Promise(resolve => setTimeout(() => resolve(LISTS[url]), 20)))
+        const [pubnet, testnet] = await Promise.all([onPubnet(provider), onTestnet(provider)])
+        expect(pubnet).toEqual(new Map([[AQUA, ['PUBNET_POOL']]]))
+        expect(testnet).toEqual(new Map([[AQUA, ['TESTNET_POOL']]]))
+    })
+
+    it('still loads one URL while another is in its failure cooldown', async () => {
+        provider.__loadPools = jest.fn(url => url === TESTNET_URL ? Promise.reject(new Error('down')) : Promise.resolve(LISTS[url]))
+        await expect(onTestnet(provider)).rejects.toThrow('No Aqua pool list loaded from amm-api-testnet.aqua.network')
+        expect(await onPubnet(provider)).toEqual(new Map([[AQUA, ['PUBNET_POOL']]]))
+    })
+
+    it('checks each pool against the list of its own network', async () => {
+        await onPubnet(provider)
+        await onTestnet(provider)
+        extractAquaPoolData.mockReturnValueOnce({reserves: [1000n, 2000n], tokens: pubnetPair})
+        expect(provider.processPoolInstance('XDR', 'PUBNET_POOL', Networks.PUBLIC, new Map(), 123, periodTimestamp)?.tokens).toEqual(pubnetPair)
+        extractAquaPoolData.mockReturnValueOnce({reserves: [1000n, 2000n], tokens: testnetPair})
+        expect(provider.processPoolInstance('XDR', 'TESTNET_POOL', Networks.TESTNET, new Map(), 123, periodTimestamp)?.tokens).toEqual(testnetPair)
+    })
+
+    it('keeps the lists of both URLs on disk and uses them after a restart', async () => {
+        await Promise.all([onPubnet(provider), onTestnet(provider)])
+        const restarted = new AquaPoolProvider()
+        restarted.configure(cacheDir)
+        restarted.__loadPools = jest.fn().mockRejectedValue(new Error('down'))
+        expect(await onPubnet(restarted)).toEqual(new Map([[AQUA, ['PUBNET_POOL']]]))
+        expect(await onTestnet(restarted)).toEqual(new Map([[AQUA, ['TESTNET_POOL']]]))
     })
 })
